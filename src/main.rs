@@ -29,6 +29,95 @@ pub enum Command {
         #[command(flatten)]
         action: AccountAction,
     },
+
+    /// Show seed.
+    Seed,
+
+    /// Show private key.
+    Private {
+        /// Wallet address.
+        #[arg(short, long)]
+        wallet: String,
+    },
+
+    /// Show wallets and balance.
+    Wallets {
+        /// Generate 10 new wallets.
+        #[arg(short, long)]
+        more: bool,
+    },
+
+    /// Send transfer transaction.
+    Transfer {
+        /// Wallet that keeps the coin.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Receiver address.
+        #[arg(short, long)]
+        addr: String,
+
+        /// Coin symbol.
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin symbol.
+        #[arg(short, long)]
+        fee: Option<String>,
+    },
+
+    /// Send split transaction.
+    Split {
+        /// Wallet that keeps the coin.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Coin symbol.
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin symbol.
+        #[arg(short, long)]
+        fee: Option<String>,
+    },
+
+    /// Send merge transaction.
+    Merge {
+        /// Wallet that keeps the coins.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Symbol of requested coin.
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin symbol.
+        #[arg(short, long)]
+        fee: Option<String>,
+    },
+
+    /// Run mining.
+    Mine {
+        /// Wallet that signs the coins.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Receiver address.
+        #[arg(short, long)]
+        addr: Option<String>,
+
+        /// Munumum symbol of mined coins.
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin symbol (it is also being mined if not exists).
+        #[arg(short, long)]
+        fee: Option<String>,
+
+        /// Number of threads.
+        #[arg(short, long, default_value_t = 1)]
+        threads: u16,
+    },
 }
 
 
@@ -92,5 +181,6 @@ fn main() {
                 account::drop();
             }
         },
+        _ => {},
     }
 }
