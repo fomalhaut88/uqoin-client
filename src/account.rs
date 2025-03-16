@@ -1,3 +1,8 @@
+pub fn new() {
+    println!("new");
+}
+
+
 pub fn init() {
     println!("init");
 }

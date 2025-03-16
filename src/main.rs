@@ -1,17 +1,16 @@
-use clap::{Subcommand, Parser};
-use clap::error::{Error, ErrorKind};
+// Clap tutorial: https://docs.rs/clap/latest/clap/_derive/_tutorial/index.html
+
+use clap::{Args, Subcommand, Parser};
 
 mod utils;
 mod password;
 mod account;
 
-use crate::utils::*;
-
 
 /// Uqoin-client
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-pub struct Args {
+pub struct Cli {
     #[command(subcommand)]
     command: Command,
 }
@@ -21,75 +20,77 @@ pub struct Args {
 pub enum Command {
     /// Password management in the application.
     Password {
-        /// Create a new password.
-        #[arg(short, long)]
-        new: bool,
-
-        /// Change existing password.
-        #[arg(short, long)]
-        change: bool,
-
-        /// Drop the password and all date (use it carefully).
-        #[arg(short, long)]
-        drop: bool,
+        #[command(flatten)]
+        action: PasswordAction,
     },
 
     /// Basic account management.
     Account {
-        /// Initialize a new account.
-        #[arg(short, long)]
-        init: bool,
-
-        /// Drop the password and all date (use it carefully).
-        #[arg(short, long)]
-        drop: bool,
+        #[command(flatten)]
+        action: AccountAction,
     },
 }
 
 
-impl Command {
-    pub fn run(&self) -> ClapResult {
-        match self {
-            Self::Password { new, change, drop } => {
-                Self::check_only_flag(&[new, change, drop])?;
-                if *new {
-                    password::new();
-                }
-                if *change {
-                    password::change();
-                }
-                if *drop {
-                    password::drop();
-                }
-            },
-            Self::Account { init, drop } => {
-                Self::check_only_flag(&[init, drop])?;
-                if *init {
-                    account::init();
-                }
-                if *drop {
-                    account::drop();
-                }
-            },
-        }
-        Ok(())
-    }
+#[derive(Args, Debug)]
+#[group(required = true, multiple = false)]
+pub struct PasswordAction {
+    /// Create a new password.
+    #[arg(short, long)]
+    new: bool,
 
-    fn check_only_flag(flags: &[&bool]) -> ClapResult {
-        let count = flags.iter().fold(0, |acc, val| acc + **val as u32);
-        if count == 1 {
-            Ok(())
-        } else {
-            Err(Error::raw(ErrorKind::ArgumentConflict, "flags conflict"))
-        }
-    }
+    /// Change existing password.
+    #[arg(short, long)]
+    change: bool,
+
+    /// Drop the password and all data (use it carefully).
+    #[arg(short, long)]
+    drop: bool,
+}
+
+
+#[derive(Args, Debug)]
+#[group(required = true, multiple = false)]
+pub struct AccountAction {
+    /// Create a new account.
+    #[arg(short, long)]
+    new: bool,
+
+    /// Initialize a new account.
+    #[arg(short, long)]
+    init: bool,
+
+    /// Drop the account.
+    #[arg(short, long)]
+    drop: bool,
 }
 
 
 fn main() {
-    let args = Args::parse();
-    let res = args.command.run();
-    if let Err(err) = res {
-        println!("{:?} {}", err.kind(), err);
+    let cli = Cli::parse();
+
+    match cli.command {
+        Command::Password { action } => {
+            if action.new {
+                password::new();
+            }
+            if action.change {
+                password::change();
+            }
+            if action.drop {
+                password::drop();
+            }
+        },
+        Command::Account { action } => {
+            if action.new {
+                account::new();
+            }
+            if action.init {
+                account::init();
+            }
+            if action.drop {
+                account::drop();
+            }
+        },
     }
 }
