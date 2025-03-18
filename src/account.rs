@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use serde::{Serialize, Deserialize};
 use uqoin_core::utils::U256;
 use uqoin_core::state::OrderCoinsMap;
 
@@ -21,6 +22,7 @@ pub fn drop() {
 }
 
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Account {
     seed: U256,
     wallets: HashMap<U256, U256>,
@@ -81,5 +83,16 @@ impl Account {
 
     pub fn push_coin(&mut self, wallet: &U256, coin: U256) {
         unimplemented!()
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        println!("yes");
     }
 }
