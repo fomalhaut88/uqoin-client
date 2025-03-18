@@ -47,6 +47,13 @@ pub enum Command {
         more: bool,
     },
 
+    /// Show coins in the wallet.
+    Coins {
+        /// Wallet address.
+        #[arg(short, long)]
+        wallet: String,
+    },
+
     /// Send transfer transaction.
     Transfer {
         /// Wallet that keeps the coin.
@@ -149,38 +156,52 @@ pub struct AccountAction {
     #[arg(short, long)]
     init: bool,
 
-    /// Drop the account.
+    /// Clean the account.
     #[arg(short, long)]
-    drop: bool,
+    clean: bool,
 }
 
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
         Command::Password { action } => {
             if action.new {
-                password::new();
+                password::new()?;
             }
             if action.change {
-                password::change();
+                password::change()?;
             }
             if action.drop {
-                password::drop();
+                password::drop()?;
             }
         },
         Command::Account { action } => {
             if action.new {
-                account::new();
+                account::new()?;
             }
             if action.init {
-                account::init();
+                account::init()?;
             }
-            if action.drop {
-                account::drop();
+            if action.clean {
+                account::clean()?;
             }
+        },
+        Command::Seed => {
+            account::seed()?;
+        },
+        Command::Private { wallet } => {
+            account::private(&wallet)?;
+        },
+        Command::Wallets { more } => {
+            account::wallets()?;
+        },
+        Command::Coins { wallet } => {
+            account::coins(&wallet)?;
         },
         _ => {},
     }
+
+    Ok(())
 }
