@@ -698,6 +698,7 @@ dependencies = [
  "finitelib",
  "lbasedb",
  "rand",
+ "serde",
  "sha3",
  "tokio",
 ]
