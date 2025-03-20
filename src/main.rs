@@ -3,8 +3,10 @@
 use clap::{Args, Subcommand, Parser};
 
 mod utils;
-mod password;
+mod appdata;
 mod account;
+mod wallet;
+mod api;
 
 
 /// Uqoin-client
@@ -16,121 +18,9 @@ pub struct Cli {
 }
 
 
-#[derive(Subcommand, Debug)]
-pub enum Command {
-    /// Password management in the application.
-    Password {
-        #[command(flatten)]
-        action: PasswordAction,
-    },
-
-    /// Basic account management.
-    Account {
-        #[command(flatten)]
-        action: AccountAction,
-    },
-
-    /// Show seed.
-    Seed,
-
-    /// Show private key.
-    Private {
-        /// Wallet address.
-        #[arg(short, long)]
-        wallet: String,
-    },
-
-    /// Show wallets and balance.
-    Wallets {
-        /// Generate 10 new wallets.
-        #[arg(short, long)]
-        more: bool,
-    },
-
-    /// Show coins in the wallet.
-    Coins {
-        /// Wallet address.
-        #[arg(short, long)]
-        wallet: String,
-    },
-
-    /// Send transfer transaction.
-    Transfer {
-        /// Wallet that keeps the coin.
-        #[arg(short, long)]
-        wallet: String,
-
-        /// Receiver address.
-        #[arg(short, long)]
-        addr: String,
-
-        /// Coin symbol.
-        #[arg(short, long)]
-        coin: String,
-
-        /// Fee coin symbol.
-        #[arg(short, long)]
-        fee: Option<String>,
-    },
-
-    /// Send split transaction.
-    Split {
-        /// Wallet that keeps the coin.
-        #[arg(short, long)]
-        wallet: String,
-
-        /// Coin symbol.
-        #[arg(short, long)]
-        coin: String,
-
-        /// Fee coin symbol.
-        #[arg(short, long)]
-        fee: Option<String>,
-    },
-
-    /// Send merge transaction.
-    Merge {
-        /// Wallet that keeps the coins.
-        #[arg(short, long)]
-        wallet: String,
-
-        /// Symbol of requested coin.
-        #[arg(short, long)]
-        coin: String,
-
-        /// Fee coin symbol.
-        #[arg(short, long)]
-        fee: Option<String>,
-    },
-
-    /// Run mining.
-    Mine {
-        /// Wallet that signs the coins.
-        #[arg(short, long)]
-        wallet: String,
-
-        /// Receiver address.
-        #[arg(short, long)]
-        addr: Option<String>,
-
-        /// Munumum symbol of mined coins.
-        #[arg(short, long)]
-        coin: String,
-
-        /// Fee coin symbol (it is also being mined if not exists).
-        #[arg(short, long)]
-        fee: Option<String>,
-
-        /// Number of threads.
-        #[arg(short, long, default_value_t = 1)]
-        threads: u16,
-    },
-}
-
-
 #[derive(Args, Debug)]
 #[group(required = true, multiple = false)]
-pub struct PasswordAction {
+pub struct AccountPasswordAction {
     /// Create a new password.
     #[arg(short, long)]
     new: bool,
@@ -138,27 +28,177 @@ pub struct PasswordAction {
     /// Change existing password.
     #[arg(short, long)]
     change: bool,
-
-    /// Drop the password and all data (use it carefully).
-    #[arg(short, long)]
-    drop: bool,
 }
 
 
 #[derive(Args, Debug)]
 #[group(required = true, multiple = false)]
-pub struct AccountAction {
-    /// Create a new account.
+pub struct AccountNewAction {
+    /// Create a random account.
     #[arg(short, long)]
-    new: bool,
+    random: bool,
 
-    /// Initialize a new account.
+    /// Create an account from mnemonic phrase (12 words).
     #[arg(short, long)]
-    init: bool,
+    existing: bool,
+}
 
-    /// Clean the account.
-    #[arg(short, long)]
-    clean: bool,
+
+#[derive(Subcommand, Debug)]
+pub enum AccountCommand {
+    /// Password management.
+    Password {
+        #[command(flatten)]
+        action: AccountPasswordAction,
+    },
+
+    /// Create a new account (random or from mnemonic).
+    New {
+        #[command(flatten)]
+        action: AccountNewAction,
+    },
+
+    /// Show mnemonic phrase.
+    Seed,
+
+    /// Drop all data.
+    Drop,
+}
+
+
+#[derive(Subcommand, Debug)]
+pub enum WalletCommand {
+    /// List available wallets.
+    List,
+
+    /// Create more wallets.
+    More {
+        #[arg(short, long, default_value_t = 10)]
+        count: usize,
+    },
+
+    /// Show wallet private key.
+    Private {
+        /// Wallet address (public key).
+        #[arg(short, long)]
+        wallet: String,
+    },
+}
+
+
+#[derive(Subcommand, Debug)]
+pub enum ApiCommand {
+    /// Show available balance and coins.
+    Balance {
+        /// Wallet address.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Show coins map.
+        #[arg(short, long)]
+        coins: bool,
+
+        /// Show available coin numbers.
+        #[arg(short, long)]
+        detailed: bool,
+    },
+
+    /// Send coin to address.
+    Send {
+        /// Sender address (wallet from).
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Receiver address (wallet to).
+        #[arg(short, long)]
+        address: String,
+
+        /// Coin (symbol or number).
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin (symbol or number).
+        #[arg(short, long)]
+        fee: Option<String>,
+    },
+
+    /// Split coin.
+    Split {
+        /// Wallet address.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Coin to split (symbol or number).
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin (symbol or number).
+        #[arg(short, long)]
+        fee: Option<String>,
+    },
+
+    /// Merge coin.
+    Merge {
+        /// Wallet address.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Desirable coin to merge (symbol).
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin (symbol or number).
+        #[arg(short, long)]
+        fee: Option<String>,
+    },
+
+    /// Run mining.
+    Mining {
+        /// Wallet to sign new coins.
+        #[arg(short, long)]
+        wallet: String,
+
+        /// Receiver wallet address.
+        #[arg(short, long)]
+        address: String,
+
+        /// Minimum coin to mine (symbol).
+        #[arg(short, long)]
+        coin: String,
+
+        /// Fee coin (symbol).
+        #[arg(short, long)]
+        fee: Option<String>,
+
+        /// Number of threads.
+        #[arg(short, long, default_value_t = 1)]
+        threads: usize,
+    },
+}
+
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Basic account management.
+    Account {
+        #[command(subcommand)]
+        command: AccountCommand,
+    },
+
+    /// Wallet operations.
+    Wallet {
+        #[command(subcommand)]
+        command: WalletCommand,
+    },
+
+    /// Operations in the net.
+    Api {
+        #[command(subcommand)]
+        command: ApiCommand,
+    },
+
+    // /// Nodes management.
+    // Nodes,
 }
 
 
@@ -166,41 +206,67 @@ fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Password { action } => {
-            if action.new {
-                password::new()?;
-            }
-            if action.change {
-                password::change()?;
-            }
-            if action.drop {
-                password::drop()?;
+        Command::Account { command } => {
+            match command {
+                AccountCommand::Password { action } => {
+                    if action.new {
+                        account::password_new()?;
+                    }
+                    if action.change {
+                        account::password_change()?;
+                    }
+                },
+                AccountCommand::New { action } => {
+                    if action.random {
+                        account::new_random()?;
+                    }
+                    if action.existing {
+                        account::new_existing()?;
+                    }
+                },
+                AccountCommand::Seed => {
+                    account::seed()?;
+                },
+                AccountCommand::Drop => {
+                    account::drop()?;
+                },
             }
         },
-        Command::Account { action } => {
-            if action.new {
-                account::new()?;
+
+        Command::Wallet { command } => {
+            match command {
+                WalletCommand::List => {
+                    wallet::list()?;
+                },
+                WalletCommand::More { count } => {
+                    wallet::more(count)?;
+                },
+                WalletCommand::Private { wallet } => {
+                    wallet::private(&wallet)?;
+                },
             }
-            if action.init {
-                account::init()?;
+        },
+
+        Command::Api { command } => {
+            match command {
+                ApiCommand::Balance { wallet, coins, detailed } => {
+                    api::balance(&wallet, coins, detailed)?;
+                },
+                ApiCommand::Send { wallet, address, coin, fee } => {
+                    api::send(&wallet, &address, &coin, fee.as_deref())?;
+                },
+                ApiCommand::Split { wallet, coin, fee } => {
+                    api::split(&wallet, &coin, fee.as_deref())?;
+                },
+                ApiCommand::Merge { wallet, coin, fee } => {
+                    api::merge(&wallet, &coin, fee.as_deref())?;
+                },
+                ApiCommand::Mining { wallet, address, coin, fee, threads } => {
+                    api::mining(&wallet, &address, &coin, fee.as_deref(), 
+                                threads)?;
+                },
             }
-            if action.clean {
-                account::clean()?;
-            }
         },
-        Command::Seed => {
-            account::seed()?;
-        },
-        Command::Private { wallet } => {
-            account::private(&wallet)?;
-        },
-        Command::Wallets { more } => {
-            account::wallets()?;
-        },
-        Command::Coins { wallet } => {
-            account::coins(&wallet)?;
-        },
-        _ => {},
     }
 
     Ok(())
