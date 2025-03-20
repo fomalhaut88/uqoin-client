@@ -152,6 +152,28 @@ pub enum ApiCommand {
         #[arg(short, long)]
         fee: Option<String>,
     },
+}
+
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Basic account management.
+    Account {
+        #[command(subcommand)]
+        command: AccountCommand,
+    },
+
+    /// Wallet operations.
+    Wallet {
+        #[command(subcommand)]
+        command: WalletCommand,
+    },
+
+    /// Operations in the net.
+    Api {
+        #[command(subcommand)]
+        command: ApiCommand,
+    },
 
     /// Run mining.
     Mining {
@@ -174,28 +196,6 @@ pub enum ApiCommand {
         /// Number of threads.
         #[arg(short, long, default_value_t = 1)]
         threads: usize,
-    },
-}
-
-
-#[derive(Subcommand, Debug)]
-pub enum Command {
-    /// Basic account management.
-    Account {
-        #[command(subcommand)]
-        command: AccountCommand,
-    },
-
-    /// Wallet operations.
-    Wallet {
-        #[command(subcommand)]
-        command: WalletCommand,
-    },
-
-    /// Operations in the net.
-    Api {
-        #[command(subcommand)]
-        command: ApiCommand,
     },
 
     // /// Nodes management.
@@ -262,11 +262,11 @@ fn main() -> std::io::Result<()> {
                 ApiCommand::Merge { wallet, coin, fee } => {
                     api::merge(&wallet, &coin, fee.as_deref())?;
                 },
-                ApiCommand::Mining { wallet, address, coin, fee, threads } => {
-                    mining::mining(&wallet, &address, &coin, fee.as_deref(), 
-                                   threads)?;
-                },
             }
+        },
+
+        Command::Mining { wallet, address, coin, fee, threads } => {
+            mining::mining(&wallet, &address, &coin, fee.as_deref(), threads)?;
         },
     }
 
