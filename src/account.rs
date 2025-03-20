@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind, Result as IOResult};
 use std::io::BufRead;
 
@@ -116,8 +116,7 @@ pub fn wallets() -> std::io::Result<()> {
         println!("Account is not initialized.");
     } else {
         for wallet in account.get_wallets() {
-            let balance = account.get_balance(wallet).unwrap();
-            println!("{} : {}", wallet, balance.to_decimal());
+            println!("{}", wallet);
         }
     }
     Ok(())
@@ -130,29 +129,28 @@ pub fn coins(wallet: &str) -> std::io::Result<()> {
     if account.is_empty() {
         println!("Account is not initialized.");
     } else {
-        if let Some(coins_map) = account.get_coins(wallet) {
-            if coins_map.is_empty() {
-                println!("Empty.");
-            } else {
-                for (order, coins) in coins_map.iter() {
-                    println!("{} - {}", order, coins.len());
-                }
-            }
+        let validator_root = &account.validators[0];
+        let url = format!("{}/client/coins?wallet={}", validator_root, wallet);
+        let text = reqwest::blocking::get(url).unwrap().text().unwrap();
+        let coins_map: HashMap<String, OrderCoinsMap> = 
+            serde_json::from_str(&text)?;
+        if coins_map.is_empty() {
+            println!("Empty.");
         } else {
-            println!("Wallet not found.");
+            for (order, coins) in coins_map.iter() {
+                println!("{} - {}", order, coins.len());
+            }
         }
     }
     Ok(())
 }
 
 
-/// Account state structure that keeps the seed, wallet keys, coins and 
-/// validators.
+/// Account state structure that keeps the seed, wallet keys and validators.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Account {
     seed: U256,
     wallets: HashMap<String, U256>,
-    coins: HashMap<String, OrderCoinsMap>,
     validators: Vec<String>,
 }
 
@@ -160,26 +158,28 @@ pub struct Account {
 impl Account {
     /// New account from raw fields.
     pub fn new(seed: U256, wallets: HashMap<String, U256>, 
-               coins: HashMap<String, OrderCoinsMap>, 
                validators: Vec<String>) -> Self {
-        Self { seed, wallets, coins, validators }
+        Self { seed, wallets, validators }
     }
 
     /// Create empty accound.
     pub fn create_empty() -> Self {
-        Self::new(U256::from(0), HashMap::new(), HashMap::new(), Vec::new())
+        Self::new(U256::from(0), HashMap::new(), 
+                  vec!["http://localhost:8080".to_string()])
     }
 
     /// Generate account with a random seed.
     pub fn create_random<R: Rng>(rng: &mut R) -> Self {
         let seed = Seed::random(rng);
-        Self::new(seed.value(), HashMap::new(), HashMap::new(), Vec::new())
+        Self::new(seed.value(), HashMap::new(),
+                  vec!["http://localhost:8080".to_string()])
     }
 
     /// Create account from mnemonic phrase (12 words).
     pub fn from_mnemonic(mnemonic: &Mnemonic) -> Self {
         let seed = Seed::from_mnemonic(mnemonic);
-        Self::new(seed.value(), HashMap::new(), HashMap::new(), Vec::new())
+        Self::new(seed.value(), HashMap::new(),
+                  vec!["http://localhost:8080".to_string()])
     }
 
     /// Load encrypted account from the file using password.
@@ -271,43 +271,42 @@ impl Account {
         let seed = Seed::from_value(&self.seed);
         for key in seed.gen_keys(schema).skip(self.wallets.len()).take(count) {
             let public = schema.get_public(&key).to_hex();
-            self.coins.insert(public.clone(), OrderCoinsMap::new());
             self.wallets.insert(public, key);
         }
     }
 
-    /// Get coins map of the wallet.
-    pub fn get_coins(&self, wallet: &str) -> Option<&OrderCoinsMap> {
-        self.coins.get(wallet)
-    }
+    // /// Get coins map of the wallet.
+    // pub fn get_coins(&self, wallet: &str) -> Option<&OrderCoinsMap> {
+    //     self.coins.get(wallet)
+    // }
 
-    /// Get total balance of the wallet.
-    pub fn get_balance(&self, wallet: &str) -> Option<U256> {
-        let mut balance = U256::from(0);
-        for (order, coins) in self.coins.get(wallet)? {
-            balance += &(&U256::from(coins.len()) << *order as usize)
-        }
-        Some(balance)
-    }
+    // /// Get total balance of the wallet.
+    // pub fn get_balance(&self, wallet: &str) -> Option<U256> {
+    //     let mut balance = U256::from(0);
+    //     for (order, coins) in self.coins.get(wallet)? {
+    //         balance += &(&U256::from(coins.len()) << *order as usize)
+    //     }
+    //     Some(balance)
+    // }
 
-    /// Pop coin of given order from the wallet.
-    pub fn pop_coin(&mut self, wallet: &str, order: u64) -> Option<U256> {
-        let coins = self.coins.get_mut(wallet)?.get_mut(&order)?;
-        let coin = coins.iter().next()?.clone();
-        coins.remove(&coin);
-        Some(coin)
-    }
+    // /// Pop coin of given order from the wallet.
+    // pub fn pop_coin(&mut self, wallet: &str, order: u64) -> Option<U256> {
+    //     let coins = self.coins.get_mut(wallet)?.get_mut(&order)?;
+    //     let coin = coins.iter().next()?.clone();
+    //     coins.remove(&coin);
+    //     Some(coin)
+    // }
 
-    /// Push coin to the given wallet.
-    pub fn push_coin(&mut self, wallet: &str, order: u64, 
-                     coin: U256) -> Option<()> {
-        let map = self.coins.get_mut(wallet)?;
-        if !map.contains_key(&order) {
-            map.insert(order, HashSet::new());
-        }
-        map.get_mut(&order).unwrap().insert(coin);
-        Some(())
-    }
+    // /// Push coin to the given wallet.
+    // pub fn push_coin(&mut self, wallet: &str, order: u64, 
+    //                  coin: U256) -> Option<()> {
+    //     let map = self.coins.get_mut(wallet)?;
+    //     if !map.contains_key(&order) {
+    //         map.insert(order, HashSet::new());
+    //     }
+    //     map.get_mut(&order).unwrap().insert(coin);
+    //     Some(())
+    // }
 }
 
 
@@ -320,14 +319,13 @@ mod tests {
         let account = Account::new(
             U256::from(25), 
             HashMap::from([("key1".to_string(), U256::from(15))]), 
-            HashMap::new(), vec!["yesman".to_string()]
+            vec!["http://localhost:8080".to_string()]
         );
         account.save("./tmp/test.aes", "qwerty123").unwrap();
 
         let account2 = Account::load("./tmp/test.aes", "qwerty123").unwrap();
         assert_eq!(account2.seed, account.seed);
         assert_eq!(account2.wallets, account.wallets);
-        assert_eq!(account2.coins, account.coins);
         assert_eq!(account2.validators, account.validators);
     }
 }
