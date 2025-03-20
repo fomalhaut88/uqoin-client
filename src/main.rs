@@ -7,6 +7,7 @@ mod appdata;
 mod account;
 mod wallet;
 mod api;
+mod mining;
 
 
 /// Uqoin-client
@@ -262,8 +263,8 @@ fn main() -> std::io::Result<()> {
                     api::merge(&wallet, &coin, fee.as_deref())?;
                 },
                 ApiCommand::Mining { wallet, address, coin, fee, threads } => {
-                    api::mining(&wallet, &address, &coin, fee.as_deref(), 
-                                threads)?;
+                    mining::mining(&wallet, &address, &coin, fee.as_deref(), 
+                                   threads)?;
                 },
             }
         },
