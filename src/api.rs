@@ -146,11 +146,13 @@ pub fn prepare_transactions(symbol_address_pairs: &[(Option<u64>, U256)],
                             std::io::Result<Vec<Transaction>> {
     let mut rng = rand::rng();
     let schema = Schema::new();
+    let mut coins_map_copy = coins_map.clone();
     let transactions = symbol_address_pairs.iter()
         .filter(|(order, _)| order.is_some())
         .map(|(order, address)| {
-            let coin_set = coins_map.get(&order.unwrap()).unwrap();
+            let coin_set = coins_map_copy.get_mut(&order.unwrap()).unwrap();
             let coin: U256 = coin_set.iter().next().unwrap().clone();
+            coin_set.remove(&coin);
             Transaction::build(&mut rng, coin, address.clone(), wallet_key, 
                                &schema)
         }).collect();
