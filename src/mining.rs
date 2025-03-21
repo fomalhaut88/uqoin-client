@@ -1,13 +1,11 @@
 use std::sync::{Arc, RwLock};
 
-use serde::Deserialize;
 use serde_json;
 use uqoin_core::utils::U256;
 use uqoin_core::schema::Schema;
-use uqoin_core::block::Block;
 use uqoin_core::transaction::Transaction;
 use uqoin_core::coin::{coin_order, coin_random};
-use uqoin_core::state::OrderCoinsMap;
+use uqoin_core::state::{OrderCoinsMap, BlockInfo};
 
 use crate::utils::*;
 use crate::appdata::load_with_password;
@@ -18,14 +16,14 @@ const MINING_CHUNK: usize = 1000000;
 const BLOCK_HASH_UPDATE_TIMEOUT_MILLIS: u64 = 2000;
 
 
-pub fn mining(wallet: &str, address: &str, coin: &str, 
+pub fn mining(wallet: &str, address: Option<&str>, coin: &str, 
               fee: Option<&str>, threads: usize) -> std::io::Result<()> {
     // Load AppData
     let appdata = load_with_password()?.0;
     appdata.check_not_empty()?;
 
     // Get current state
-    let block_hash = request_last_block(&appdata.get_validators()[0])?.hash;
+    let block_hash = request_last_block_hash(&appdata.get_validators()[0])?;
     let block_hash_arc = Arc::new(RwLock::new(block_hash));
 
     let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
@@ -36,7 +34,8 @@ pub fn mining(wallet: &str, address: &str, coin: &str,
         // Options to pass
         let schema = Schema::new();
         let miner = U256::from_hex(wallet);
-        let address = U256::from_hex(address);
+        let address = address.map(|addr| U256::from_hex(addr))
+                             .unwrap_or(miner.clone());
         let min_order = get_order_by_symbol(coin);
         let min_order_fee = fee.map(|s| get_order_by_symbol(s));
         let block_hash_arc = Arc::clone(&block_hash_arc);
@@ -119,7 +118,7 @@ pub fn mining(wallet: &str, address: &str, coin: &str,
         );
 
         *block_hash_arc.write().unwrap() = 
-            request_last_block(&appdata.get_validators()[0])?.hash;
+            request_last_block_hash(&appdata.get_validators()[0])?;
 
         *coins_map_arc.write().unwrap() = 
             request_coins_map(wallet, &appdata.get_validators()[0])?;
@@ -127,20 +126,11 @@ pub fn mining(wallet: &str, address: &str, coin: &str,
 }
 
 
-#[allow(dead_code)]
-#[derive(Deserialize)]
-pub struct BlockData {
-    pub bix: u64,
-    pub block: Block,
-    pub transactions: Option<Vec<Transaction>>,
-}
-
-
-pub fn request_last_block(validator_root: &str) -> std::io::Result<Block> {
-    let url = format!("{}/blockchain/block", validator_root);
+pub fn request_last_block_hash(validator_root: &str) -> std::io::Result<U256> {
+    let url = format!("{}/blockchain/block-info", validator_root);
     let text = reqwest::blocking::get(url).unwrap().text().unwrap();
-    let data: BlockData = serde_json::from_str(&text)?;
-    Ok(data.block)
+    let block_info: BlockInfo = serde_json::from_str(&text)?;
+    Ok(block_info.hash)
 }
 
 

@@ -183,7 +183,7 @@ pub enum Command {
 
         /// Receiver wallet address.
         #[arg(short, long)]
-        address: String,
+        address: Option<String>,
 
         /// Minimum coin to mine (symbol).
         #[arg(short, long)]
@@ -266,7 +266,8 @@ fn main() -> std::io::Result<()> {
         },
 
         Command::Mining { wallet, address, coin, fee, threads } => {
-            mining::mining(&wallet, &address, &coin, fee.as_deref(), threads)?;
+            mining::mining(&wallet, address.as_deref(), &coin, fee.as_deref(), 
+                           threads)?;
         },
     }
 
