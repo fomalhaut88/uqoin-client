@@ -135,12 +135,7 @@ pub fn request_send(transactions: &[Transaction],
                     validator_root: &str) -> std::io::Result<()> {
     let url = format!("{}/client/send", validator_root);
     let client = reqwest::blocking::Client::new();
-    let resp = client.post(url).json(&transactions).send().unwrap();
-    if resp.status() == 200 {
-        println!("Transfer reqwested successfully.");
-    } else {
-        println!("Something is wrong");
-    };
+    client.post(url).json(&transactions).send().unwrap();
     Ok(())
 }
 

@@ -4,7 +4,7 @@ use serde_json;
 use uqoin_core::utils::U256;
 use uqoin_core::schema::Schema;
 use uqoin_core::transaction::Transaction;
-use uqoin_core::coin::{coin_order, coin_random};
+use uqoin_core::coin::{coin_order, coin_random, coin_symbol};
 use uqoin_core::state::{OrderCoinsMap, BlockInfo};
 
 use crate::utils::*;
@@ -36,7 +36,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
         let miner = U256::from_hex(wallet);
         let address = address.map(|addr| U256::from_hex(addr))
                              .unwrap_or(miner.clone());
-        let min_order = get_order_by_symbol(coin);
+        let min_order_coin = get_order_by_symbol(coin);
         let min_order_fee = fee.map(|s| get_order_by_symbol(s));
         let block_hash_arc = Arc::clone(&block_hash_arc);
         let coins_map_arc = Arc::clone(&coins_map_arc);
@@ -46,7 +46,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
 
         // Minimum mining order
         let min_order_mining = std::cmp::min(
-            min_order, min_order_fee.unwrap_or(256)
+            min_order_coin, min_order_fee.unwrap_or(256)
         );
 
         // Spawn a thread
@@ -80,6 +80,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                             let mut coins_map = coins_map_arc.write().unwrap();
                             represent_as_coin_fee_pairs(coin_order_pairs, 
                                                         &mut coins_map,
+                                                        min_order_coin,
                                                         min_order_fee)
                         };
 
@@ -91,11 +92,29 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                                                &wallet_key, &schema),
                         ]).collect()
                     } else {
-                        coins.into_iter().map(|coin| vec![
-                            Transaction::build(&mut rng, coin, address.clone(), 
-                                               &wallet_key, &schema)
+                        coins.iter().map(|coin| vec![
+                            Transaction::build(&mut rng, coin.clone(), 
+                                               address.clone(), &wallet_key, 
+                                               &schema)
                         ]).collect()
                     };
+
+                // Print just mined coins
+                if !coins.is_empty() && !groups.is_empty() {
+                    print!("New coins mined: ");
+                    for gr in groups.iter() {
+                        for tr in gr.iter() {
+                            if coins.contains(&tr.coin) {
+                                let order = coin_order(&tr.coin, 
+                                                       &block_hash_prev, 
+                                                       &miner);
+                                let symbol = coin_symbol(order);
+                                print!("{}-{} ", symbol, tr.coin.to_hex());
+                            }
+                        }
+                    }
+                    println!("");
+                }
 
                 // Send groups to the node
                 for validator_root in validator_root_vec.iter() {
@@ -138,18 +157,27 @@ pub fn request_last_block_hash(validator_root: &str) -> std::io::Result<U256> {
 /// match more pairs coin-fee so the mining profit will be maximum.
 pub fn represent_as_coin_fee_pairs(coin_order_pairs: Vec<(U256, u64)>,
                                    coins_map: &mut OrderCoinsMap,
+                                   min_order_coin: u64,
                                    min_order_fee: u64) -> 
                                    Vec<(U256, U256)> {
-    // Size
+    // Sizes
     let mut size = coin_order_pairs.len();
+    let max_size: usize = 2 * coin_order_pairs.iter()
+        .filter(|(_, or)| *or >= min_order_coin).count();
 
+    // Sort coins by order decreasingly
+    let mut coin_order_pairs = coin_order_pairs;
+    coin_order_pairs.sort_by_key(|(_, order)| 255 - order);
+
+    // Cut too cheap coins
+    if size > max_size {
+        coin_order_pairs.truncate(max_size);
+        size = max_size;
+    }
+    
     if size > 0 {
-        // Sort coins by order decreasingly
-        let mut coin_order_pairs = coin_order_pairs;
-        coin_order_pairs.sort_by_key(|(_, order)| 255 - order);
-
         // Maximum coin order
-        let order_max = coin_order_pairs[0].1;    
+        let order_max = coin_order_pairs[0].1;
 
         // Iterator for popped coins from coins_map
         let mut coins_map_copy = coins_map.clone();
@@ -189,7 +217,7 @@ pub fn represent_as_coin_fee_pairs(coin_order_pairs: Vec<(U256, u64)>,
 
         // Try to add two coins from the map
         if size & 1 == 0 {
-            loop {
+            while size < max_size {
                 if let Some((cm1, or1)) = coins_map_iter.next() {
                     if let Some((cm2, or2)) = coins_map_iter.next() {
                         let or = coin_order_pairs[size / 2].1;
@@ -211,8 +239,10 @@ pub fn represent_as_coin_fee_pairs(coin_order_pairs: Vec<(U256, u64)>,
 
         // Remove moved coins from coins map
         for (cm, or) in coin_order_pairs.iter().rev() {
-            if !coins_map.get_mut(&or).unwrap().remove(cm) {
-                break;
+            if coins_map.contains_key(&or) {
+                if !coins_map.get_mut(&or).unwrap().remove(cm) {
+                    break;
+                }
             }
         }
 
