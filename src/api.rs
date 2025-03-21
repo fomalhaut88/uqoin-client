@@ -2,13 +2,14 @@ use uqoin_core::state::OrderCoinsMap;
 use uqoin_core::transaction::Transaction;
 use uqoin_core::schema::Schema;
 use uqoin_core::utils::U256;
+use uqoin_core::coin::coin_order_by_symbol;
 
 use crate::utils::*;
 use crate::appdata::load_with_password;
 
 
 pub fn balance(wallet: &str, coins: bool, 
-               detailed: bool) -> std::io::Result<()> {
+               detailed: bool, unit: Option<char>) -> std::io::Result<()> {
     let appdata = load_with_password()?.0;
     appdata.check_not_empty()?;
 
@@ -32,8 +33,17 @@ pub fn balance(wallet: &str, coins: bool,
             }
         }
     } else {
-        let total_balance = get_total_balance(&coins_map);
-        println!("{}", total_balance.to_decimal());
+        let total_balance: u128 = get_total_balance(&coins_map);
+        if let Some(unit) = unit {
+            let count = unit as i64 - 'A' as i64;
+            let mut output = total_balance as f64;
+            for _ in 0..count {
+                output /= 1024.0;
+            }
+            println!("{}", output);
+        } else {
+            println!("{}", total_balance);
+        }
     }
 
     Ok(())
@@ -50,11 +60,11 @@ pub fn send(wallet: &str, address: &str, coin: &str,
     let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
 
     // Prepare transactions
-    let order = get_order_by_symbol(coin);
+    let order = coin_order_by_symbol(coin);
     let transactions = prepare_transactions(
         &[
             (Some(order), U256::from_hex(address)),
-            (fee.map(|s| get_order_by_symbol(s)), U256::from(0)),
+            (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
         ],
         appdata.get_wallet_key(wallet).unwrap(),
         &coins_map
@@ -77,11 +87,11 @@ pub fn split(wallet: &str, coin: &str,
     let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
 
     // Prepare transactions
-    let order = get_order_by_symbol(coin);
+    let order = coin_order_by_symbol(coin);
     let transactions = prepare_transactions(
         &[
             (Some(order), U256::from(1)),
-            (fee.map(|s| get_order_by_symbol(s)), U256::from(0)),
+            (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
         ],
         appdata.get_wallet_key(wallet).unwrap(),
         &coins_map
@@ -104,13 +114,13 @@ pub fn merge(wallet: &str, coin: &str,
     let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
 
     // Prepare transactions
-    let order = get_order_by_symbol(coin);
+    let order = coin_order_by_symbol(coin);
     let transactions = prepare_transactions(
         &[
             (Some(order - 1), U256::from(2)),
             (Some(order - 2), U256::from(2)),
             (Some(order - 2), U256::from(2)),
-            (fee.map(|s| get_order_by_symbol(s)), U256::from(0)),
+            (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
         ],
         appdata.get_wallet_key(wallet).unwrap(),
         &coins_map

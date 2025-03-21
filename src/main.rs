@@ -102,6 +102,10 @@ pub enum ApiCommand {
         /// Show available coin numbers.
         #[arg(short, long)]
         detailed: bool,
+
+        /// Show available coin numbers.
+        #[arg(short, long)]
+        unit: Option<char>,
     },
 
     /// Send coin to address.
@@ -250,8 +254,8 @@ fn main() -> std::io::Result<()> {
 
         Command::Api { command } => {
             match command {
-                ApiCommand::Balance { wallet, coins, detailed } => {
-                    api::balance(&wallet, coins, detailed)?;
+                ApiCommand::Balance { wallet, coins, detailed, unit } => {
+                    api::balance(&wallet, coins, detailed, unit)?;
                 },
                 ApiCommand::Send { wallet, address, coin, fee } => {
                     api::send(&wallet, &address, &coin, fee.as_deref())?;

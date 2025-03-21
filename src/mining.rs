@@ -4,10 +4,10 @@ use serde_json;
 use uqoin_core::utils::U256;
 use uqoin_core::schema::Schema;
 use uqoin_core::transaction::Transaction;
-use uqoin_core::coin::{coin_order, coin_random, coin_symbol};
+use uqoin_core::coin::{coin_order, coin_random, coin_symbol, 
+                       coin_order_by_symbol};
 use uqoin_core::state::{OrderCoinsMap, BlockInfo};
 
-use crate::utils::*;
 use crate::appdata::load_with_password;
 use crate::api::{request_send, request_coins_map};
 
@@ -36,8 +36,8 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
         let miner = U256::from_hex(wallet);
         let address = address.map(|addr| U256::from_hex(addr))
                              .unwrap_or(miner.clone());
-        let min_order_coin = get_order_by_symbol(coin);
-        let min_order_fee = fee.map(|s| get_order_by_symbol(s));
+        let min_order_coin = coin_order_by_symbol(coin);
+        let min_order_fee = fee.map(|s| coin_order_by_symbol(s));
         let block_hash_arc = Arc::clone(&block_hash_arc);
         let coins_map_arc = Arc::clone(&coins_map_arc);
         let wallet_key = appdata.get_wallet_key(wallet).unwrap().clone();

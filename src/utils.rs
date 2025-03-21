@@ -1,7 +1,6 @@
 use std::io::Write;
 
 use rpassword::read_password;
-use uqoin_core::utils::U256;
 use uqoin_core::state::OrderCoinsMap;
 
 
@@ -30,33 +29,10 @@ pub fn require_password() -> std::io::Result<String> {
 
 
 /// Get total balance of coins_map.
-pub fn get_total_balance(coins_map: &OrderCoinsMap) -> U256 {
-    let mut balance = U256::from(0);
+pub fn get_total_balance(coins_map: &OrderCoinsMap) -> u128 {
+    let mut balance = 0;
     for (order, coins) in coins_map.iter() {
-        balance += &(&U256::from(coins.len()) << *order as usize);
+        balance += (coins.len() as u128) << *order as usize;
     }
     balance
-}
-
-
-/// Get coin order by symbol.
-pub fn get_order_by_symbol(symbol: &str) -> u64 {
-    let letter = symbol.chars().next().unwrap() as u64 - 'A' as u64;
-    let number: u64 = symbol[1..].parse().unwrap();
-    10 * letter + number.trailing_zeros() as u64
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_order_by_symbol() {
-        assert_eq!(get_order_by_symbol("C32"), 25);
-        assert_eq!(get_order_by_symbol("D4"), 32);
-        assert_eq!(get_order_by_symbol("B1"), 10);
-        assert_eq!(get_order_by_symbol("A1"), 0);
-        assert_eq!(get_order_by_symbol("Z32"), 255);
-    }
 }
