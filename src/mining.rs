@@ -6,7 +6,8 @@ use uqoin_core::schema::Schema;
 use uqoin_core::transaction::Transaction;
 use uqoin_core::coin::{coin_order, coin_random, coin_symbol, 
                        coin_order_by_symbol};
-use uqoin_core::state::{OrderCoinsMap, BlockInfo};
+use uqoin_core::state::OrderCoinsMap;
+use uqoin_core::block::BlockInfo;
 
 use crate::appdata::load_with_password;
 use crate::api::{request_send, request_coins_map};
