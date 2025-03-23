@@ -15,6 +15,13 @@ use crate::utils::*;
 
 pub const APPDATA_PATH: &str = "./tmp/appdata.aes";
 
+pub const VALIDATORS_DEFAULT: [&str; 4] = [
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://localhost:8082",
+    "http://localhost:8083",
+];
+
 
 /// Load AppData instance requiring user password.
 pub fn load_with_password() -> std::io::Result<(AppData, String)> {
@@ -41,24 +48,30 @@ impl AppData {
         Self { seed, wallets_map, wallets_seq, validators }
     }
 
+    // /// Set default validators.
+    // pub fn set_default_validators(&mut self) {
+    //     self.validators = 
+    //         VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect();
+    // }
+
     /// Create an empty AppData instance.
     pub fn create_empty() -> Self {
         Self::new(U256::from(0), HashMap::new(), Vec::new(),
-                  vec!["http://localhost:8080".to_string()])
+                  VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect())
     }
 
     /// Generate an AppData instance with a random seed.
     pub fn create_random<R: Rng>(rng: &mut R) -> Self {
         let seed = Seed::random(rng);
         Self::new(seed.value(), HashMap::new(), Vec::new(),
-                  vec!["http://localhost:8080".to_string()])
+                  VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect())
     }
 
     /// Create an AppData instance from mnemonic phrase (12 words).
     pub fn from_mnemonic(mnemonic: &Mnemonic) -> Self {
         let seed = Seed::from_mnemonic(mnemonic);
         Self::new(seed.value(), HashMap::new(), Vec::new(),
-                  vec!["http://localhost:8080".to_string()])
+                  VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect())
     }
 
     /// Load encrypted AppData instance from the file using password.
@@ -182,7 +195,12 @@ mod tests {
             U256::from(25), 
             HashMap::from([("key1".to_string(), U256::from(15))]), 
             vec!["key1".to_string()],
-            vec!["http://localhost:8080".to_string()]
+            vec![
+                "http://localhost:8080".to_string(),
+                "http://localhost:8081".to_string(),
+                "http://localhost:8082".to_string(),
+                "http://localhost:8083".to_string(),
+            ]
         );
         appdata.save("./tmp/test.aes", "qwerty123").unwrap();
 

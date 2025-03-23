@@ -36,3 +36,21 @@ pub fn get_total_balance(coins_map: &OrderCoinsMap) -> u128 {
     }
     balance
 }
+
+
+/// Try validators sequentionally.
+#[macro_export]
+macro_rules! try_validators {
+    ($validators:expr, $func:ident $(, $arg:expr)*) => {
+        {
+            let mut res = None;
+            for validator in $validators.iter() {
+                if let Ok(r) = $func($($arg,)* validator) {
+                    res = Some(r);
+                    break;
+                }
+            }
+            res
+        }
+    }
+}

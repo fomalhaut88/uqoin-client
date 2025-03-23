@@ -4,6 +4,7 @@ use uqoin_core::schema::Schema;
 use uqoin_core::utils::U256;
 use uqoin_core::coin::coin_order_by_symbol;
 
+use crate::try_validators;
 use crate::utils::*;
 use crate::appdata::load_with_password;
 
@@ -13,37 +14,40 @@ pub fn balance(wallet: &str, coins: bool,
     let appdata = load_with_password()?.0;
     appdata.check_not_empty()?;
 
-    let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
-
-    if detailed {
-        if coins_map.is_empty() {
-            println!("Empty.");
-        } else {
-            for (order, coins) in coins_map.iter() {
-                println!("{} - {:?}", order, coins.iter()
-                    .map(|coin| coin.to_hex()).collect::<Vec<String>>());
+    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
+                                             request_coins_map, wallet) {
+        if detailed {
+            if coins_map.is_empty() {
+                println!("Empty.");
+            } else {
+                for (order, coins) in coins_map.iter() {
+                    println!("{} - {:?}", order, coins.iter()
+                        .map(|coin| coin.to_hex()).collect::<Vec<String>>());
+                }
             }
-        }
-    } else if coins {
-        if coins_map.is_empty() {
-            println!("Empty.");
+        } else if coins {
+            if coins_map.is_empty() {
+                println!("Empty.");
+            } else {
+                for (order, coins) in coins_map.iter() {
+                    println!("{} - {}", order, coins.len());
+                }
+            }
         } else {
-            for (order, coins) in coins_map.iter() {
-                println!("{} - {}", order, coins.len());
+            let total_balance: u128 = get_total_balance(&coins_map);
+            if let Some(unit) = unit {
+                let count = unit as i64 - 'A' as i64;
+                let mut output = total_balance as f64;
+                for _ in 0..count {
+                    output /= 1024.0;
+                }
+                println!("{}", output);
+            } else {
+                println!("{}", total_balance);
             }
         }
     } else {
-        let total_balance: u128 = get_total_balance(&coins_map);
-        if let Some(unit) = unit {
-            let count = unit as i64 - 'A' as i64;
-            let mut output = total_balance as f64;
-            for _ in 0..count {
-                output /= 1024.0;
-            }
-            println!("{}", output);
-        } else {
-            println!("{}", total_balance);
-        }
+        println!("Error: cound not reach validators.");
     }
 
     Ok(())
@@ -57,21 +61,30 @@ pub fn send(wallet: &str, address: &str, coin: &str,
     appdata.check_not_empty()?;
 
     // Request coins map
-    let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
+    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
+                                             request_coins_map, wallet) {
 
-    // Prepare transactions
-    let order = coin_order_by_symbol(coin);
-    let transactions = prepare_transactions(
-        &[
-            (Some(order), U256::from_hex(address)),
-            (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
-        ],
-        appdata.get_wallet_key(wallet).unwrap(),
-        &coins_map
-    )?;
+        // Prepare transactions
+        let order = coin_order_by_symbol(coin);
+        let transactions = prepare_transactions(
+            &[
+                (Some(order), U256::from_hex(address)),
+                (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
+            ],
+            appdata.get_wallet_key(wallet).unwrap(),
+            &coins_map
+        )?;
 
-    // Request the node
-    request_send(&transactions, &appdata.get_validators()[0])?;
+        // Request the node
+        if let Some(_) = try_validators!(appdata.get_validators(), 
+                                         request_send, &transactions) {
+            println!("Transaction request has been sent.");
+        } else {
+            println!("Error sending transaction request.");
+        }
+    } else {
+        println!("Error: cound not reach validators.");
+    }
 
     Ok(())
 }
@@ -84,21 +97,29 @@ pub fn split(wallet: &str, coin: &str,
     appdata.check_not_empty()?;
 
     // Request coins map
-    let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
+    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
+                                             request_coins_map, wallet) {
+        // Prepare transactions
+        let order = coin_order_by_symbol(coin);
+        let transactions = prepare_transactions(
+            &[
+                (Some(order), U256::from(1)),
+                (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
+            ],
+            appdata.get_wallet_key(wallet).unwrap(),
+            &coins_map
+        )?;
 
-    // Prepare transactions
-    let order = coin_order_by_symbol(coin);
-    let transactions = prepare_transactions(
-        &[
-            (Some(order), U256::from(1)),
-            (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
-        ],
-        appdata.get_wallet_key(wallet).unwrap(),
-        &coins_map
-    )?;
-
-    // Request the node
-    request_send(&transactions, &appdata.get_validators()[0])?;
+        // Request the node
+        if let Some(_) = try_validators!(appdata.get_validators(), 
+                                         request_send, &transactions) {
+            println!("Transaction request has been sent.");
+        } else {
+            println!("Error sending transaction request.");
+        }
+    } else {
+        println!("Error: cound not reach validators.");
+    }
 
     Ok(())
 }
@@ -111,32 +132,45 @@ pub fn merge(wallet: &str, coin: &str,
     appdata.check_not_empty()?;
 
     // Request coins map
-    let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
+    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
+                                             request_coins_map, wallet) {
+        // Prepare transactions
+        let order = coin_order_by_symbol(coin);
+        let transactions = prepare_transactions(
+            &[
+                (Some(order - 1), U256::from(2)),
+                (Some(order - 2), U256::from(2)),
+                (Some(order - 2), U256::from(2)),
+                (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
+            ],
+            appdata.get_wallet_key(wallet).unwrap(),
+            &coins_map
+        )?;
 
-    // Prepare transactions
-    let order = coin_order_by_symbol(coin);
-    let transactions = prepare_transactions(
-        &[
-            (Some(order - 1), U256::from(2)),
-            (Some(order - 2), U256::from(2)),
-            (Some(order - 2), U256::from(2)),
-            (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
-        ],
-        appdata.get_wallet_key(wallet).unwrap(),
-        &coins_map
-    )?;
-
-    // Request the node
-    request_send(&transactions, &appdata.get_validators()[0])?;
+        // Request the node
+        if let Some(_) = try_validators!(appdata.get_validators(), 
+                                         request_send, &transactions) {
+            println!("Transaction request has been sent.");
+        } else {
+            println!("Error sending transaction request.");
+        }
+    } else {
+        println!("Error: cound not reach validators.");
+    }
 
     Ok(())
 }
 
 
 pub fn request_coins_map(wallet: &str, 
-                         validator_root: &str) -> std::io::Result<OrderCoinsMap> {
+                         validator_root: &str) -> 
+                         std::io::Result<OrderCoinsMap> {
     let url = format!("{}/client/coins?wallet={}", validator_root, wallet);
-    let text = reqwest::blocking::get(url).unwrap().text().unwrap();
+    let resp = reqwest::blocking::get(url.clone())
+        .map_err(|_| std::io::Error::new(
+            std::io::ErrorKind::NotFound.into(), url
+        ))?;
+    let text = resp.text().unwrap();
     Ok(serde_json::from_str(&text)?)
 }
 
@@ -145,7 +179,10 @@ pub fn request_send(transactions: &[Transaction],
                     validator_root: &str) -> std::io::Result<()> {
     let url = format!("{}/client/send", validator_root);
     let client = reqwest::blocking::Client::new();
-    client.post(url).json(&transactions).send().unwrap();
+    client.post(url.clone()).json(&transactions).send()
+        .map_err(|_| std::io::Error::new(
+            std::io::ErrorKind::NotFound.into(), url
+        ))?;
     Ok(())
 }
 

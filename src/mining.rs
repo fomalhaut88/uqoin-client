@@ -9,6 +9,7 @@ use uqoin_core::coin::{coin_order, coin_random, coin_symbol,
 use uqoin_core::state::OrderCoinsMap;
 use uqoin_core::block::BlockInfo;
 
+use crate::try_validators;
 use crate::appdata::load_with_password;
 use crate::api::{request_send, request_coins_map};
 
@@ -24,10 +25,12 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
     appdata.check_not_empty()?;
 
     // Get current state
-    let block_hash = request_last_block_hash(&appdata.get_validators()[0])?;
+    let block_hash = try_validators!(appdata.get_validators(), 
+                                     request_last_block_hash).unwrap();
     let block_hash_arc = Arc::new(RwLock::new(block_hash));
 
-    let coins_map = request_coins_map(wallet, &appdata.get_validators()[0])?;
+    let coins_map = try_validators!(appdata.get_validators(), 
+                                    request_coins_map, wallet).unwrap();
     let coins_map_arc = Arc::new(RwLock::new(coins_map));
 
     // Loop for threads
@@ -89,7 +92,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                         coin_fee_pairs.into_iter().map(|(coin, fee)| vec![
                             Transaction::build(&mut rng, coin, address.clone(), 
                                                &wallet_key, &schema),
-                            Transaction::build(&mut rng, fee, address.clone(), 
+                            Transaction::build(&mut rng, fee, U256::from(0), 
                                                &wallet_key, &schema),
                         ]).collect()
                     } else {
@@ -117,13 +120,14 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                     println!("");
                 }
 
-                // Send groups to the node
+                // Send groups to all nodes
                 for validator_root in validator_root_vec.iter() {
                     for group in groups.iter() {
                         let group = group.clone();
                         let validator_root = validator_root.clone();
                         std::thread::spawn(move || {
-                            request_send(&group, &validator_root).unwrap();
+                            let res = request_send(&group, &validator_root);
+                            if let Err(_) = res {}
                         });
                     }
                 }
@@ -138,17 +142,23 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
         );
 
         *block_hash_arc.write().unwrap() = 
-            request_last_block_hash(&appdata.get_validators()[0])?;
+            try_validators!(appdata.get_validators(), 
+                            request_last_block_hash).unwrap();
 
         *coins_map_arc.write().unwrap() = 
-            request_coins_map(wallet, &appdata.get_validators()[0])?;
+            try_validators!(appdata.get_validators(), 
+                            request_coins_map, wallet).unwrap();
     }
 }
 
 
 pub fn request_last_block_hash(validator_root: &str) -> std::io::Result<U256> {
     let url = format!("{}/blockchain/block-info", validator_root);
-    let text = reqwest::blocking::get(url).unwrap().text().unwrap();
+    let resp = reqwest::blocking::get(url.clone())
+        .map_err(|_| std::io::Error::new(
+            std::io::ErrorKind::NotFound.into(), url
+        ))?;
+    let text = resp.text().unwrap();
     let block_info: BlockInfo = serde_json::from_str(&text)?;
     Ok(block_info.hash)
 }
