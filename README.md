@@ -2,7 +2,7 @@
 
 A command line tool to interact with nodes of Uqoin ecosystem. It supports
 working with wallets, sending transactions, mining. The data of the application
-is stored in disk and encrypted with AES-128 so you need to enter the password
+is stored on disk encrypted with AES-128 so you need to enter the password
 every time to run a command.
 
 ## Quick start
