@@ -1,5 +1,3 @@
-// Clap tutorial: https://docs.rs/clap/latest/clap/_derive/_tutorial/index.html
-
 use clap::{Args, Subcommand, Parser};
 
 mod utils;
@@ -8,6 +6,7 @@ mod account;
 mod wallet;
 mod api;
 mod mining;
+mod node;
 
 
 /// Uqoin-client
@@ -160,6 +159,49 @@ pub enum ApiCommand {
 
 
 #[derive(Subcommand, Debug)]
+pub enum NodeCommand {
+    /// List URLs of known nodes.
+    List,
+
+    /// Add a URL of new node.
+    Add {
+        /// URL of the node.
+        #[arg(short, long)]
+        node: String,
+    },
+
+    /// Remove the node by url.
+    Remove {
+        /// URL of the node.
+        #[arg(short, long)]
+        node: String,
+    },
+
+    /// Move the node to the position in the list.
+    Move {
+        /// URL of the node.
+        #[arg(short, long)]
+        node: String,
+
+        /// Desirable position in the list (starting with 1).
+        #[arg(short, long)]
+        pos: usize,
+    },
+
+    /// Set node list to its default state.
+    Default,
+
+    /// Fetch known nodes from the given node (or all ones if the node is not 
+    /// specified).
+    Fetch {
+        /// URL of the node.
+        #[arg(short, long)]
+        node: Option<String>,
+    },
+}
+
+
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Basic account management.
     Account {
@@ -202,8 +244,11 @@ pub enum Command {
         threads: usize,
     },
 
-    // /// Nodes management.
-    // Nodes,
+    /// Node management.
+    Node {
+        #[command(subcommand)]
+        command: NodeCommand,
+    },
 }
 
 
@@ -272,6 +317,29 @@ fn main() -> std::io::Result<()> {
         Command::Mining { wallet, address, coin, fee, threads } => {
             mining::mining(&wallet, address.as_deref(), &coin, fee.as_deref(), 
                            threads)?;
+        },
+
+        Command::Node { command } => {
+            match command {
+                NodeCommand::List => {
+                    node::list()?;
+                },
+                NodeCommand::Add { node } => {
+                    node::add(&node)?;
+                },
+                NodeCommand::Remove { node } => {
+                    node::remove(&node)?;
+                },
+                NodeCommand::Move { node, pos } => {
+                    node::r#move(&node, pos)?;
+                },
+                NodeCommand::Default => {
+                    node::default()?;
+                },
+                NodeCommand::Fetch { node } => {
+                    node::fetch(node.as_deref())?;
+                },
+            }
         },
     }
 

@@ -48,12 +48,6 @@ impl AppData {
         Self { seed, wallets_map, wallets_seq, validators }
     }
 
-    // /// Set default validators.
-    // pub fn set_default_validators(&mut self) {
-    //     self.validators = 
-    //         VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect();
-    // }
-
     /// Create an empty AppData instance.
     pub fn create_empty() -> Self {
         Self::new(U256::from(0), HashMap::new(), Vec::new(),
@@ -178,9 +172,48 @@ impl AppData {
         }
     }
 
-    /// Get validators.
-    pub fn get_validators(&self) -> &[String] {
+    /// List validators.
+    pub fn list_validators(&self) -> &[String] {
         &self.validators
+    }
+
+    /// Add validator.
+    pub fn add_validator(&mut self, validator: String) -> bool {
+        if self.validators.contains(&validator) {
+            false
+        } else {
+            self.validators.push(validator);
+            true
+        }
+    }
+
+    /// Remove validator.
+    pub fn remove_validator(&mut self, validator: &str) -> bool {
+        let ix = self.validators.iter().position(|elem| elem == validator);
+        if let Some(ix) = ix {
+            self.validators.remove(ix);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Move validator to the position.
+    pub fn move_validator(&mut self, validator: &str, pos: usize) -> bool {
+        let ix = self.validators.iter().position(|elem| elem == validator);
+        if let Some(ix) = ix {
+            let elem = self.validators.remove(ix);
+            self.validators.insert(pos - 1, elem);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set default validators.
+    pub fn set_default_validators(&mut self) {
+        self.validators = 
+            VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect();
     }
 }
 

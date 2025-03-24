@@ -25,11 +25,11 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
     appdata.check_not_empty()?;
 
     // Get current state
-    let block_hash = try_first_validator!(appdata.get_validators(), 
+    let block_hash = try_first_validator!(appdata.list_validators(), 
                                           request_last_block_hash).unwrap();
     let block_hash_arc = Arc::new(RwLock::new(block_hash));
 
-    let coins_map = try_first_validator!(appdata.get_validators(), 
+    let coins_map = try_first_validator!(appdata.list_validators(), 
                                          request_coins_map, wallet).unwrap();
     let coins_map_arc = Arc::new(RwLock::new(coins_map));
 
@@ -45,7 +45,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
         let block_hash_arc = Arc::clone(&block_hash_arc);
         let coins_map_arc = Arc::clone(&coins_map_arc);
         let wallet_key = appdata.get_wallet_key(wallet).unwrap().clone();
-        let validator_root_vec = appdata.get_validators().iter().cloned()
+        let validator_root_vec = appdata.list_validators().iter().cloned()
                                         .collect::<Vec<_>>();
 
         // Minimum mining order
@@ -142,11 +142,11 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
         );
 
         *block_hash_arc.write().unwrap() = 
-            try_first_validator!(appdata.get_validators(), 
+            try_first_validator!(appdata.list_validators(), 
                                  request_last_block_hash).unwrap();
 
         *coins_map_arc.write().unwrap() = 
-            try_first_validator!(appdata.get_validators(), 
+            try_first_validator!(appdata.list_validators(), 
                                  request_coins_map, wallet).unwrap();
     }
 }
