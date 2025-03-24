@@ -9,7 +9,7 @@ use uqoin_core::coin::{coin_order, coin_random, coin_symbol,
 use uqoin_core::state::OrderCoinsMap;
 use uqoin_core::block::BlockInfo;
 
-use crate::try_validators;
+use crate::try_first_validator;
 use crate::appdata::load_with_password;
 use crate::api::{request_send, request_coins_map};
 
@@ -25,12 +25,12 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
     appdata.check_not_empty()?;
 
     // Get current state
-    let block_hash = try_validators!(appdata.get_validators(), 
-                                     request_last_block_hash).unwrap();
+    let block_hash = try_first_validator!(appdata.get_validators(), 
+                                          request_last_block_hash).unwrap();
     let block_hash_arc = Arc::new(RwLock::new(block_hash));
 
-    let coins_map = try_validators!(appdata.get_validators(), 
-                                    request_coins_map, wallet).unwrap();
+    let coins_map = try_first_validator!(appdata.get_validators(), 
+                                         request_coins_map, wallet).unwrap();
     let coins_map_arc = Arc::new(RwLock::new(coins_map));
 
     // Loop for threads
@@ -142,12 +142,12 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
         );
 
         *block_hash_arc.write().unwrap() = 
-            try_validators!(appdata.get_validators(), 
-                            request_last_block_hash).unwrap();
+            try_first_validator!(appdata.get_validators(), 
+                                 request_last_block_hash).unwrap();
 
         *coins_map_arc.write().unwrap() = 
-            try_validators!(appdata.get_validators(), 
-                            request_coins_map, wallet).unwrap();
+            try_first_validator!(appdata.get_validators(), 
+                                 request_coins_map, wallet).unwrap();
     }
 }
 

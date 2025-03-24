@@ -38,9 +38,9 @@ pub fn get_total_balance(coins_map: &OrderCoinsMap) -> u128 {
 }
 
 
-/// Try validators sequentionally.
+/// Try first successful validator.
 #[macro_export]
-macro_rules! try_validators {
+macro_rules! try_first_validator {
     ($validators:expr, $func:ident $(, $arg:expr)*) => {
         {
             let mut res = None;
@@ -51,6 +51,23 @@ macro_rules! try_validators {
                 }
             }
             res
+        }
+    }
+}
+
+
+/// Try all validators. Macros returns count of successful calls.
+#[macro_export]
+macro_rules! try_all_validators {
+    ($validators:expr, $func:ident $(, $arg:expr)*) => {
+        {
+            let mut count: usize = 0;
+            for validator in $validators.iter() {
+                if $func($($arg,)* validator).is_ok() {
+                    count += 1;
+                }
+            }
+            count
         }
     }
 }

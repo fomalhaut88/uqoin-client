@@ -4,7 +4,7 @@ use uqoin_core::schema::Schema;
 use uqoin_core::utils::U256;
 use uqoin_core::coin::coin_order_by_symbol;
 
-use crate::try_validators;
+use crate::{try_first_validator, try_all_validators};
 use crate::utils::*;
 use crate::appdata::load_with_password;
 
@@ -14,8 +14,8 @@ pub fn balance(wallet: &str, coins: bool,
     let appdata = load_with_password()?.0;
     appdata.check_not_empty()?;
 
-    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
-                                             request_coins_map, wallet) {
+    if let Some(coins_map) = try_first_validator!(appdata.get_validators(), 
+                                                  request_coins_map, wallet) {
         if detailed {
             if coins_map.is_empty() {
                 println!("Empty.");
@@ -61,8 +61,8 @@ pub fn send(wallet: &str, address: &str, coin: &str,
     appdata.check_not_empty()?;
 
     // Request coins map
-    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
-                                             request_coins_map, wallet) {
+    if let Some(coins_map) = try_first_validator!(appdata.get_validators(), 
+                                                  request_coins_map, wallet) {
 
         // Prepare transactions
         let order = coin_order_by_symbol(coin);
@@ -76,8 +76,8 @@ pub fn send(wallet: &str, address: &str, coin: &str,
         )?;
 
         // Request the node
-        if let Some(_) = try_validators!(appdata.get_validators(), 
-                                         request_send, &transactions) {
+        if try_all_validators!(appdata.get_validators(), request_send, 
+                               &transactions) > 0 {
             println!("Transaction request has been sent.");
         } else {
             println!("Error sending transaction request.");
@@ -97,8 +97,8 @@ pub fn split(wallet: &str, coin: &str,
     appdata.check_not_empty()?;
 
     // Request coins map
-    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
-                                             request_coins_map, wallet) {
+    if let Some(coins_map) = try_first_validator!(appdata.get_validators(), 
+                                                  request_coins_map, wallet) {
         // Prepare transactions
         let order = coin_order_by_symbol(coin);
         let transactions = prepare_transactions(
@@ -111,8 +111,8 @@ pub fn split(wallet: &str, coin: &str,
         )?;
 
         // Request the node
-        if let Some(_) = try_validators!(appdata.get_validators(), 
-                                         request_send, &transactions) {
+        if try_all_validators!(appdata.get_validators(), request_send, 
+                               &transactions) > 0 {
             println!("Transaction request has been sent.");
         } else {
             println!("Error sending transaction request.");
@@ -132,8 +132,8 @@ pub fn merge(wallet: &str, coin: &str,
     appdata.check_not_empty()?;
 
     // Request coins map
-    if let Some(coins_map) = try_validators!(appdata.get_validators(), 
-                                             request_coins_map, wallet) {
+    if let Some(coins_map) = try_first_validator!(appdata.get_validators(), 
+                                                  request_coins_map, wallet) {
         // Prepare transactions
         let order = coin_order_by_symbol(coin);
         let transactions = prepare_transactions(
@@ -148,8 +148,8 @@ pub fn merge(wallet: &str, coin: &str,
         )?;
 
         // Request the node
-        if let Some(_) = try_validators!(appdata.get_validators(), 
-                                         request_send, &transactions) {
+        if try_all_validators!(appdata.get_validators(), request_send, 
+                               &transactions) > 0 {
             println!("Transaction request has been sent.");
         } else {
             println!("Error sending transaction request.");
