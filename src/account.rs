@@ -78,9 +78,6 @@ pub fn new_random() -> std::io::Result<()> {
 
 
 pub fn new_existing() -> std::io::Result<()> {
-    // Example mnemonic:
-    // accident child alpha chief mountain useless long basket zebra pole equip strike
-
     let password = require_password()?;
     let appdata = AppData::load(APPDATA_PATH, &password)?;
 
