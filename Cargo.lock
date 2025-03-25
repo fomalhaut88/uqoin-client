@@ -1612,6 +1612,7 @@ dependencies = [
 [[package]]
 name = "uqoin-core"
 version = "0.1.0"
+source = "git+https://github.com/fomalhaut88/uqoin-core.git#517c607303fe67fc762ede47cf2a61f31897e6fa"
 dependencies = [
  "bip39",
  "finitelib",
