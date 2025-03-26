@@ -102,7 +102,7 @@ pub enum ApiCommand {
         #[arg(short, long)]
         detailed: bool,
 
-        /// Show available coin numbers.
+        /// Units of the balance (A, B, C, etc).
         #[arg(short, long)]
         unit: Option<char>,
     },
