@@ -1,4 +1,4 @@
-use uqoin_core::state::OrderCoinsMap;
+use uqoin_core::state::{OrderCoinsMap, CoinInfo};
 use uqoin_core::transaction::Transaction;
 use uqoin_core::schema::Schema;
 use uqoin_core::utils::U256;
@@ -72,7 +72,7 @@ pub fn send(wallet: &str, address: &str, coin: &str,
                 (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
             ],
             appdata.get_wallet_key(wallet).unwrap(),
-            &coins_map
+            &coins_map, appdata.list_validators()
         )?;
 
         // Request the node
@@ -107,7 +107,7 @@ pub fn split(wallet: &str, coin: &str,
                 (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
             ],
             appdata.get_wallet_key(wallet).unwrap(),
-            &coins_map
+            &coins_map, appdata.list_validators()
         )?;
 
         // Request the node
@@ -144,7 +144,7 @@ pub fn merge(wallet: &str, coin: &str,
                 (fee.map(|s| coin_order_by_symbol(s)), U256::from(0)),
             ],
             appdata.get_wallet_key(wallet).unwrap(),
-            &coins_map
+            &coins_map, appdata.list_validators()
         )?;
 
         // Request the node
@@ -175,6 +175,19 @@ pub fn request_coins_map(wallet: &str,
 }
 
 
+pub fn request_coin_info(coin: &str, 
+                         validator_root: &str) -> 
+                         std::io::Result<CoinInfo> {
+    let url = format!("{}/coin/info?coin={}", validator_root, coin);
+    let resp = reqwest::blocking::get(url.clone())
+        .map_err(|_| std::io::Error::new(
+            std::io::ErrorKind::NotFound.into(), url
+        ))?;
+    let text = resp.text().unwrap();
+    Ok(serde_json::from_str(&text)?)
+}
+
+
 pub fn request_send(transactions: &[Transaction], 
                     validator_root: &str) -> std::io::Result<()> {
     let url = format!("{}/client/send", validator_root);
@@ -189,7 +202,8 @@ pub fn request_send(transactions: &[Transaction],
 
 pub fn prepare_transactions(symbol_address_pairs: &[(Option<u64>, U256)], 
                             wallet_key: &U256,
-                            coins_map: &OrderCoinsMap) -> 
+                            coins_map: &OrderCoinsMap,
+                            validators: &[String]) -> 
                             std::io::Result<Vec<Transaction>> {
     let mut rng = rand::rng();
     let schema = Schema::new();
@@ -200,8 +214,10 @@ pub fn prepare_transactions(symbol_address_pairs: &[(Option<u64>, U256)],
             let coin_set = coins_map_copy.get_mut(&order.unwrap()).unwrap();
             let coin: U256 = coin_set.iter().next().unwrap().clone();
             coin_set.remove(&coin);
+            let coin_info = try_first_validator!(validators, request_coin_info, 
+                                                 &coin.to_hex()).unwrap();
             Transaction::build(&mut rng, coin, address.clone(), wallet_key, 
-                               &schema)
+                               coin_info.counter, &schema)
         }).collect();
     Ok(transactions)
 }

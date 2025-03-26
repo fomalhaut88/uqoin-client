@@ -1,17 +1,15 @@
 use std::sync::{Arc, RwLock};
 
-use serde_json;
 use uqoin_core::utils::U256;
 use uqoin_core::schema::Schema;
 use uqoin_core::transaction::Transaction;
 use uqoin_core::coin::{coin_order, coin_random, coin_symbol, 
                        coin_order_by_symbol};
 use uqoin_core::state::OrderCoinsMap;
-use uqoin_core::block::BlockInfo;
 
 use crate::try_first_validator;
 use crate::appdata::load_with_password;
-use crate::api::{request_send, request_coins_map};
+use crate::api::{request_send, request_coins_map, request_coin_info};
 
 
 const MINING_CHUNK: usize = 1000000;
@@ -25,10 +23,6 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
     appdata.check_not_empty()?;
 
     // Get current state
-    let block_hash = try_first_validator!(appdata.list_validators(), 
-                                          request_last_block_hash).unwrap();
-    let block_hash_arc = Arc::new(RwLock::new(block_hash));
-
     let coins_map = try_first_validator!(appdata.list_validators(), 
                                          request_coins_map, wallet).unwrap();
     let coins_map_arc = Arc::new(RwLock::new(coins_map));
@@ -42,7 +36,6 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                              .unwrap_or(miner.clone());
         let min_order_coin = coin_order_by_symbol(coin);
         let min_order_fee = fee.map(|s| coin_order_by_symbol(s));
-        let block_hash_arc = Arc::clone(&block_hash_arc);
         let coins_map_arc = Arc::clone(&coins_map_arc);
         let wallet_key = appdata.get_wallet_key(wallet).unwrap().clone();
         let validator_root_vec = appdata.list_validators().iter().cloned()
@@ -59,13 +52,10 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
             let mut rng = rand::rng();
 
             loop {
-                // Clone block_hash_prev
-                let block_hash_prev = block_hash_arc.read().unwrap().clone();
-
                 // Try to mine some coins
                 let coins = (0..MINING_CHUNK)
-                    .map(|_| coin_random(&mut rng, &block_hash_prev, &miner))
-                    .filter(|coin| coin_order(coin, &block_hash_prev, &miner) 
+                    .map(|_| coin_random(&mut rng, &miner))
+                    .filter(|coin| coin_order(coin, &miner) 
                                    >= min_order_mining)
                     .collect::<Vec<U256>>();
 
@@ -76,7 +66,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                         let coin_order_pairs = coins.iter()
                             .map(|coin| (
                                 coin.clone(), 
-                                coin_order(coin, &block_hash_prev, &miner)
+                                coin_order(coin, &miner)
                             )).collect::<Vec<(U256, u64)>>();
 
                         // Represent as coin-fee pairs
@@ -89,16 +79,25 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                         };
 
                         // Collect transactions
-                        coin_fee_pairs.into_iter().map(|(coin, fee)| vec![
-                            Transaction::build(&mut rng, coin, address.clone(), 
-                                               &wallet_key, &schema),
-                            Transaction::build(&mut rng, fee, U256::from(0), 
-                                               &wallet_key, &schema),
-                        ]).collect()
+                        coin_fee_pairs.into_iter().map(|(coin, fee)| {
+                            let fee_counter = try_first_validator!(
+                                validator_root_vec, request_coin_info, 
+                                &fee.to_hex()
+                            ).map(|ci| ci.counter).unwrap_or(0);
+
+                            vec![
+                                Transaction::build(&mut rng, coin, 
+                                                   address.clone(), 
+                                                   &wallet_key, 0, &schema),
+                                Transaction::build(&mut rng, fee, U256::from(0), 
+                                                   &wallet_key, fee_counter, 
+                                                   &schema),
+                            ]
+                        }).collect()
                     } else {
                         coins.iter().map(|coin| vec![
                             Transaction::build(&mut rng, coin.clone(), 
-                                               address.clone(), &wallet_key, 
+                                               address.clone(), &wallet_key, 0,
                                                &schema)
                         ]).collect()
                     };
@@ -109,9 +108,7 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
                     for gr in groups.iter() {
                         for tr in gr.iter() {
                             if coins.contains(&tr.coin) {
-                                let order = coin_order(&tr.coin, 
-                                                       &block_hash_prev, 
-                                                       &miner);
+                                let order = coin_order(&tr.coin, &miner);
                                 let symbol = coin_symbol(order);
                                 print!("{}-{} ", symbol, tr.coin.to_hex());
                             }
@@ -141,26 +138,10 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
             std::time::Duration::from_millis(BLOCK_HASH_UPDATE_TIMEOUT_MILLIS)
         );
 
-        *block_hash_arc.write().unwrap() = 
-            try_first_validator!(appdata.list_validators(), 
-                                 request_last_block_hash).unwrap();
-
         *coins_map_arc.write().unwrap() = 
             try_first_validator!(appdata.list_validators(), 
                                  request_coins_map, wallet).unwrap();
     }
-}
-
-
-pub fn request_last_block_hash(validator_root: &str) -> std::io::Result<U256> {
-    let url = format!("{}/blockchain/block-info", validator_root);
-    let resp = reqwest::blocking::get(url.clone())
-        .map_err(|_| std::io::Error::new(
-            std::io::ErrorKind::NotFound.into(), url
-        ))?;
-    let text = resp.text().unwrap();
-    let block_info: BlockInfo = serde_json::from_str(&text)?;
-    Ok(block_info.hash)
 }
 
 
