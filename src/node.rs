@@ -1,4 +1,4 @@
-use crate::appdata::{load_with_password, APPDATA_PATH};
+use crate::appdata::load_with_password;
 
 
 pub fn list() -> std::io::Result<()> {
@@ -15,7 +15,7 @@ pub fn add(validator: &str) -> std::io::Result<()> {
     let (mut appdata, password) = load_with_password()?;
     appdata.check_not_empty()?;
     if appdata.add_validator(validator.to_string()) {
-        appdata.save(APPDATA_PATH, &password)?;
+        appdata.save(&password)?;
         println!("New node added successfully.");
     } else {
         println!("This node already exists.");
@@ -28,7 +28,7 @@ pub fn remove(validator: &str) -> std::io::Result<()> {
     let (mut appdata, password) = load_with_password()?;
     appdata.check_not_empty()?;
     if appdata.remove_validator(validator) {
-        appdata.save(APPDATA_PATH, &password)?;
+        appdata.save(&password)?;
         println!("The node removed successfully.");
     } else {
         println!("This node does not exist.");
@@ -41,7 +41,7 @@ pub fn r#move(validator: &str, pos: usize) -> std::io::Result<()> {
     let (mut appdata, password) = load_with_password()?;
     appdata.check_not_empty()?;
     if appdata.move_validator(validator, pos) {
-        appdata.save(APPDATA_PATH, &password)?;
+        appdata.save(&password)?;
         println!("The node moved successfully.");
     } else {
         println!("This node does not exist.");
@@ -54,7 +54,7 @@ pub fn default() -> std::io::Result<()> {
     let (mut appdata, password) = load_with_password()?;
     appdata.check_not_empty()?;
     appdata.set_default_validators();
-    appdata.save(APPDATA_PATH, &password)?;
+    appdata.save(&password)?;
     println!("Default nodes have been restored.");
     Ok(())
 }
@@ -90,7 +90,7 @@ pub fn fetch(validator: Option<&str>) -> std::io::Result<()> {
     }
 
     // Save appdata
-    appdata.save(APPDATA_PATH, &password)?;
+    appdata.save(&password)?;
 
     Ok(())
 }

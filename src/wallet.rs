@@ -1,6 +1,6 @@
 use uqoin_core::schema::Schema;
 
-use crate::appdata::{load_with_password, APPDATA_PATH};
+use crate::appdata::load_with_password;
 
 
 pub fn list() -> std::io::Result<()> {
@@ -18,7 +18,7 @@ pub fn more(count: usize) -> std::io::Result<()> {
     appdata.check_not_empty()?;
     let schema = Schema::new();
     appdata.more_wallets(count, &schema);
-    appdata.save(APPDATA_PATH, &password)?;
+    appdata.save(&password)?;
     Ok(())
 }
 

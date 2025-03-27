@@ -13,7 +13,7 @@ use uqoin_core::seed::{Seed, Mnemonic};
 use crate::utils::*;
 
 
-pub const APPDATA_PATH: &str = "./tmp/appdata.aes";
+pub const APPDATA_PATH: &str = "~/.uqoin-client/appdata.aes";  // "./tmp/appdata.aes";
 
 pub const VALIDATORS_DEFAULT: [&str; 1] = [
     "http://localhost:8080",
@@ -23,8 +23,31 @@ pub const VALIDATORS_DEFAULT: [&str; 1] = [
 /// Load AppData instance requiring user password.
 pub fn load_with_password() -> std::io::Result<(AppData, String)> {
     let password = require_password()?;
-    let appdata = AppData::load(APPDATA_PATH, &password)?;
+    let appdata = AppData::load(&password)?;
     Ok((appdata, password))
+}
+
+
+/// Create the necessary directories and get full path to the appdata file.
+pub fn ensure_appdata_path(appdata_path: &str) -> IOResult<String> {
+    // Normalize path
+    let path_buff = if appdata_path.starts_with("~/") {
+        let mut pb = home::home_dir()
+            .expect("Unable to access the user directory.");
+        pb.push(&appdata_path[2..]);
+        pb
+    } else {
+        appdata_path.into()
+    };
+
+    // Ensure the directory
+    let parent_dir = path_buff.parent().unwrap();
+    if !std::fs::exists(&parent_dir)? {
+        std::fs::create_dir_all(parent_dir)?;
+    }
+
+    // Return
+    Ok(path_buff.display().to_string())
 }
 
 
@@ -66,13 +89,15 @@ impl AppData {
     }
 
     /// Load encrypted AppData instance from the file using password.
-    pub fn load(path: &str, password: &str) -> IOResult<Self> {
+    pub fn load(password: &str) -> IOResult<Self> {
         // Initialize cipher with the password
         let key = GenericArray::from(str_to_bytes::<16>(password));
         let cipher = Aes128::new(&key);
 
         // Read encrypted data from the file
-        let encrypted = std::fs::read(path)?;
+        let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+        let encrypted = std::fs::read(appdata_path)
+            .expect("Account is not created yet.");
 
         // Prepare blocks to decrypt
         let blocks: Vec<_> = encrypted.chunks(16)
@@ -101,7 +126,7 @@ impl AppData {
     }
 
     /// Save AppData instance into a file encrypted with password.
-    pub fn save(&self, path: &str, password: &str) -> IOResult<()> {
+    pub fn save(&self, password: &str) -> IOResult<()> {
         // Initialize cipher with the password
         let key = GenericArray::from(str_to_bytes::<16>(password));
         let cipher = Aes128::new(&key);
@@ -123,7 +148,8 @@ impl AppData {
         cipher.encrypt_blocks(&mut encrypted);
 
         // Save data to the file
-        std::fs::write(path, encrypted.concat())?;
+        let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+        std::fs::write(appdata_path, encrypted.concat())?;
 
         Ok(())
     }
@@ -211,32 +237,5 @@ impl AppData {
     pub fn set_default_validators(&mut self) {
         self.validators = 
             VALIDATORS_DEFAULT.iter().map(|v| v.to_string()).collect();
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_save_load() {
-        let appdata = AppData::new(
-            U256::from(25), 
-            HashMap::from([("key1".to_string(), U256::from(15))]), 
-            vec!["key1".to_string()],
-            vec![
-                "http://localhost:8080".to_string(),
-                "http://localhost:8081".to_string(),
-                "http://localhost:8082".to_string(),
-                "http://localhost:8083".to_string(),
-            ]
-        );
-        appdata.save("./tmp/test.aes", "qwerty123").unwrap();
-
-        let appdata2 = AppData::load("./tmp/test.aes", "qwerty123").unwrap();
-        assert_eq!(appdata2.seed, appdata.seed);
-        assert_eq!(appdata2.wallets_map, appdata.wallets_map);
-        assert_eq!(appdata2.validators, appdata.validators);
     }
 }

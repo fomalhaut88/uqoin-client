@@ -4,11 +4,13 @@ use uqoin_core::schema::Schema;
 use uqoin_core::seed::Mnemonic;
 
 use crate::utils::require_password;
-use crate::appdata::{AppData, APPDATA_PATH, load_with_password};
+use crate::appdata::{AppData, APPDATA_PATH, load_with_password, 
+                     ensure_appdata_path};
 
 
 pub fn password_new() -> std::io::Result<()> {
-    if std::fs::exists(APPDATA_PATH)? {
+    let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+    if std::fs::exists(appdata_path)? {
         println!("Account already exists. Drop it first to create a new one.");
     } else {
         println!("Please, enter desirable password.");
@@ -23,7 +25,7 @@ pub fn password_new() -> std::io::Result<()> {
             println!("Passwords do not match. Try again.");
         } else {
             let appdata = AppData::create_empty();
-            appdata.save(APPDATA_PATH, &password)?;
+            appdata.save(&password)?;
             println!("Password has been set successfully.");
         }
     }
@@ -32,7 +34,8 @@ pub fn password_new() -> std::io::Result<()> {
 
 
 pub fn password_change() -> std::io::Result<()> {
-    if std::fs::exists(APPDATA_PATH)? {
+    let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+    if std::fs::exists(appdata_path)? {
         println!("Please, enter current password.");
         let password = require_password()?;
         println!("");
@@ -48,8 +51,8 @@ pub fn password_change() -> std::io::Result<()> {
         if password_new != password_confirm {
             println!("Passwords do not match. Try again.");
         } else {
-            let appdata = AppData::load(APPDATA_PATH, &password)?;
-            appdata.save(APPDATA_PATH, &password_new)?;
+            let appdata = AppData::load(&password)?;
+            appdata.save(&password_new)?;
             println!("Password has been changed successfully.");
         }
     } else {
@@ -61,14 +64,14 @@ pub fn password_change() -> std::io::Result<()> {
 
 pub fn new_random() -> std::io::Result<()> {
     let password = require_password()?;
-    let appdata = AppData::load(APPDATA_PATH, &password)?;
+    let appdata = AppData::load(&password)?;
 
     if appdata.is_empty() {
         let mut rng = rand::rng();
         let schema = Schema::new();
         let mut appdata = AppData::create_random(&mut rng);
         appdata.more_wallets(10, &schema);
-        appdata.save(APPDATA_PATH, &password)?;
+        appdata.save(&password)?;
         println!("A new account has been initialized with a random seed.");
     } else {
         println!("Account is already initialized.");
@@ -79,7 +82,7 @@ pub fn new_random() -> std::io::Result<()> {
 
 pub fn new_existing() -> std::io::Result<()> {
     let password = require_password()?;
-    let appdata = AppData::load(APPDATA_PATH, &password)?;
+    let appdata = AppData::load(&password)?;
 
     if appdata.is_empty() {
         println!("Enter mnemonic phrase (12 words):");
@@ -97,7 +100,7 @@ pub fn new_existing() -> std::io::Result<()> {
             let schema = Schema::new();
             let mut appdata = AppData::from_mnemonic(&mnemonic);
             appdata.more_wallets(10, &schema);
-            appdata.save(APPDATA_PATH, &password)?;
+            appdata.save(&password)?;
             println!("Account has been initialized with mnemonic phrase.");
         }
     } else {
@@ -119,8 +122,9 @@ pub fn seed() -> std::io::Result<()> {
 pub fn drop() -> std::io::Result<()> {
     println!("Are you sure you want to delete all the application data?");
     load_with_password()?;
-    if std::fs::exists(APPDATA_PATH)? {
-        std::fs::remove_file(APPDATA_PATH)?;
+    let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+    if std::fs::exists(&appdata_path)? {
+        std::fs::remove_file(&appdata_path)?;
         println!("Account has been fully removed.");
     } else {
         println!("Account does not exist yet.");
