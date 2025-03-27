@@ -13,7 +13,7 @@ use uqoin_core::seed::{Seed, Mnemonic};
 use crate::utils::*;
 
 
-pub const APPDATA_PATH: &str = "~/.uqoin-client/appdata.aes";  // "./tmp/appdata.aes";
+pub const APPDATA_PATH: &str = "~/.uqoin-client/appdata.aes";
 
 pub const VALIDATORS_DEFAULT: [&str; 1] = [
     "http://localhost:8080",
