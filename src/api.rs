@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use uqoin_core::state::{OrderCoinsMap, CoinInfo};
 use uqoin_core::transaction::Transaction;
 use uqoin_core::schema::Schema;
 use uqoin_core::utils::U256;
-use uqoin_core::coin::coin_order_by_symbol;
+use uqoin_core::coin::{coin_order_by_symbol, coin_symbol};
 
 use crate::{try_first_validator, try_all_validators};
 use crate::utils::*;
@@ -20,31 +22,49 @@ pub fn balance(wallet: &str, coins: bool,
             if coins_map.is_empty() {
                 println!("Empty.");
             } else {
-                for (order, coins) in coins_map.iter() {
-                    println!("{} - {:?}", order, coins.iter()
-                        .map(|coin| coin.to_hex()).collect::<Vec<String>>());
+                // Convert coins map to order-coins pairs
+                let mut order_coins_vec = coins_map.into_iter()
+                    .collect::<Vec<(u64, HashSet<U256>)>>();
+
+                // Sort pairs by order descendingly
+                order_coins_vec.sort_by(|a, b| b.0.cmp(&a.0));
+
+                // Print order-coin pairs
+                for (order, coins) in order_coins_vec.into_iter() {
+                    for coin in coins.into_iter() {
+                        println!("{}\t{}", coin_symbol(order), coin.to_hex());
+                    }
                 }
             }
         } else if coins {
             if coins_map.is_empty() {
                 println!("Empty.");
             } else {
-                for (order, coins) in coins_map.iter() {
-                    println!("{} - {}", order, coins.len());
+                // Convert coins map to order-count pairs
+                let mut order_count_vec = coins_map.into_iter()
+                    .map(|(order, coins)| (order, coins.len()))
+                    .collect::<Vec<(u64, usize)>>();
+
+                // Sort pairs by order descendingly
+                order_count_vec.sort_by(|a, b| b.0.cmp(&a.0));
+
+                // Print order-count pairs
+                for (order, count) in order_count_vec.into_iter() {
+                    println!("{}\t{}", coin_symbol(order), count);
                 }
             }
         } else {
-            let total_balance: u128 = get_total_balance(&coins_map);
-            if let Some(unit) = unit {
-                let count = unit as i64 - 'A' as i64;
-                let mut output = total_balance as f64;
-                for _ in 0..count {
-                    output /= 1024.0;
-                }
-                println!("{}", output);
-            } else {
-                println!("{}", total_balance);
+            // Get unit
+            let unit = unit.unwrap_or('A');
+
+            // Convert the balance into the units
+            let mut output = get_total_balance(&coins_map) as f64;
+            for _ in 0 .. (unit as usize - 'A' as usize) {
+                output /= 1024.0;
             }
+
+            // Print the balance
+            println!("{} {}", output, unit);
         }
     } else {
         println!("Error: cound not reach validators.");
