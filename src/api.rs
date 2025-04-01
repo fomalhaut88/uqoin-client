@@ -212,10 +212,17 @@ pub fn request_send(transactions: &[Transaction],
                     validator_root: &str) -> std::io::Result<()> {
     let url = format!("{}/client/send", validator_root);
     let client = reqwest::blocking::Client::new();
-    client.post(url.clone()).json(&transactions).send()
+    let resp = client.post(url.clone()).json(&transactions).send()
         .map_err(|_| std::io::Error::new(
             std::io::ErrorKind::NotFound.into(), url
         ))?;
+    if resp.status() != 200 {
+        let text = resp.text().unwrap_or("".to_string());
+        // Set `false` to `true` to view server errors
+        if !text.is_empty() && false {
+            println!("Request send error: {}", text);
+        }
+    }
     Ok(())
 }
 
