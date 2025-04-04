@@ -136,8 +136,8 @@ fn send_task(nodes: &[String], min_order_coin: u64, min_order_fee: u64,
                 }
             }
 
-            // Sleep for 10 seconds
-            std::thread::sleep(std::time::Duration::from_millis(10000));
+            // Sleep for 2 seconds
+            std::thread::sleep(std::time::Duration::from_millis(2000));
         }
     }
 }
