@@ -5,6 +5,12 @@ working with wallets, sending transactions, mining. The data of the application
 is stored on disk encrypted with AES-128 so you need to enter the password
 every time to run a command.
 
+## Installation
+
+1. Download the source: `git clone https://github.com/fomalhaut88/uqoin-client.git --depth=1`
+2. Compile (you need Rust installed in Nightly toolchain): `cargo build --release`
+3. Copy the executable: `sudo cp ./target/release/uqoin-client /usr/bin/uqoin-client`
+
 ## Quick start
 
 1. Show help: `uqoin-client help`
