@@ -218,12 +218,14 @@ pub fn request_send(transactions: &[Transaction],
         ))?;
     if resp.status() != 200 {
         let text = resp.text().unwrap_or("".to_string());
-        // Set `false` to `true` to view server errors
-        if !text.is_empty() && false {
-            println!("Request send error: {}", text);
+        if text.is_empty() {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "node error"))
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, text))
         }
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 
 

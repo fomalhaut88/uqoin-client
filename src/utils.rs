@@ -38,6 +38,29 @@ pub fn get_total_balance(coins_map: &OrderCoinsMap) -> u128 {
 }
 
 
+/// Normalize path and ensure the parent directory exists.
+pub fn ensure_location(path: &str) -> std::io::Result<String> {
+    // Normalize path
+    let path_buff = if path.starts_with("~/") {
+        let mut pb = home::home_dir()
+            .expect("Unable to access the user directory.");
+        pb.push(&path[2..]);
+        pb
+    } else {
+        path.into()
+    };
+
+    // Ensure the directory
+    let parent_dir = path_buff.parent().unwrap();
+    if !std::fs::exists(&parent_dir)? {
+        std::fs::create_dir_all(parent_dir)?;
+    }
+
+    // Return
+    Ok(path_buff.display().to_string())
+}
+
+
 /// Try first successful validator.
 #[macro_export]
 macro_rules! try_first_validator {

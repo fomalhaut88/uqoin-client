@@ -28,29 +28,6 @@ pub fn load_with_password() -> std::io::Result<(AppData, String)> {
 }
 
 
-/// Create the necessary directories and get full path to the appdata file.
-pub fn ensure_appdata_path(appdata_path: &str) -> IOResult<String> {
-    // Normalize path
-    let path_buff = if appdata_path.starts_with("~/") {
-        let mut pb = home::home_dir()
-            .expect("Unable to access the user directory.");
-        pb.push(&appdata_path[2..]);
-        pb
-    } else {
-        appdata_path.into()
-    };
-
-    // Ensure the directory
-    let parent_dir = path_buff.parent().unwrap();
-    if !std::fs::exists(&parent_dir)? {
-        std::fs::create_dir_all(parent_dir)?;
-    }
-
-    // Return
-    Ok(path_buff.display().to_string())
-}
-
-
 /// Application data that keeps the seed, wallet keys and validators.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppData {
@@ -95,7 +72,7 @@ impl AppData {
         let cipher = Aes128::new(&key);
 
         // Read encrypted data from the file
-        let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+        let appdata_path = ensure_location(APPDATA_PATH)?;
         let encrypted = std::fs::read(appdata_path)
             .expect("Account is not created yet.");
 
@@ -148,7 +125,7 @@ impl AppData {
         cipher.encrypt_blocks(&mut encrypted);
 
         // Save data to the file
-        let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+        let appdata_path = ensure_location(APPDATA_PATH)?;
         std::fs::write(appdata_path, encrypted.concat())?;
 
         Ok(())

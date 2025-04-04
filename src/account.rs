@@ -3,13 +3,12 @@ use std::io::BufRead;
 use uqoin_core::schema::Schema;
 use uqoin_core::seed::Mnemonic;
 
-use crate::utils::require_password;
-use crate::appdata::{AppData, APPDATA_PATH, load_with_password, 
-                     ensure_appdata_path};
+use crate::utils::*;
+use crate::appdata::{AppData, APPDATA_PATH, load_with_password};
 
 
 pub fn password_new() -> std::io::Result<()> {
-    let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+    let appdata_path = ensure_location(APPDATA_PATH)?;
     if std::fs::exists(appdata_path)? {
         println!("Account already exists. Drop it first to create a new one.");
     } else {
@@ -34,7 +33,7 @@ pub fn password_new() -> std::io::Result<()> {
 
 
 pub fn password_change() -> std::io::Result<()> {
-    let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+    let appdata_path = ensure_location(APPDATA_PATH)?;
     if std::fs::exists(appdata_path)? {
         println!("Please, enter current password.");
         let password = require_password()?;
@@ -122,7 +121,7 @@ pub fn seed() -> std::io::Result<()> {
 pub fn drop() -> std::io::Result<()> {
     println!("Are you sure you want to delete all the application data?");
     load_with_password()?;
-    let appdata_path = ensure_appdata_path(APPDATA_PATH)?;
+    let appdata_path = ensure_location(APPDATA_PATH)?;
     if std::fs::exists(&appdata_path)? {
         std::fs::remove_file(&appdata_path)?;
         println!("Account has been fully removed.");
