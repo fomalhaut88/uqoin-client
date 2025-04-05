@@ -107,7 +107,7 @@ fn send_task(nodes: &[String], min_order_coin: u64, min_order_fee: u64,
                 if let Some(fee) = get_fee(&mut rng, min_order_fee, 
                                            min_order_coin,
                                            local_resource, remote_resource) {
-                    println!("Coin sent: {}", coin.to_hex());
+                    // println!("Coin sent: {}", coin.to_hex());
 
                     // Request for fee coin counter
                     let fee_counter = try_first_validator!(
