@@ -29,7 +29,7 @@ every time to run a command.
 | `uqoin-client api send -w <WALLET1> -a <WALLET2> -c D128 -f D1` | Send coin D128 from `WALLET1` to `WALLET2` with fee coin D1. |
 | `uqoin-client api split -w <WALLET> -c D128 -f D1` | Split coin D128 in `WALLET` into D64 and two D32 with fee coin D1. |
 | `uqoin-client api merge -w <WALLET> -c D128 -f D1` | Split coins D64 and two D32 in `WALLET` into D128 with fee coin D1. |
-| `uqoin-client mining -w <WALLET> -f C32 -t 4` | Run mining of the coins greater D1 and fee equal to D1 on 4 cores for the wallet `WALLET`. |
+| `uqoin-client mining -w <WALLET> -f D1 -t 4` | Run mining of the coins greater D1 and fee equal to D1 on 4 cores for the wallet `WALLET`. |
 
 ## All commands
 
