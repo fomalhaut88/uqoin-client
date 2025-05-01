@@ -1,32 +1,28 @@
-use std::collections::HashSet;
 use std::sync::RwLock;
+use std::collections::HashSet;
 
-use rand::prelude::*;
 use uqoin_core::utils::U256;
 use uqoin_core::schema::Schema;
+use uqoin_core::coin::{coin_order, coin_symbol, coin_mine, 
+                       coin_order_by_symbol};
 use uqoin_core::transaction::Transaction;
-use uqoin_core::coin::{coin_order, coin_order_by_symbol, coin_mine, coin_symbol};
 use uqoin_core::state::OrderCoinsMap;
 
 use crate::utils::*;
 use crate::try_first_validator;
-use crate::api::{request_send, request_coins_map, request_coin_info};
+use crate::api::{request_coin_info, request_send};
 use crate::appdata::load_with_password;
 
 
 const COINS_CACHE: &str = "~/.uqoin-client/coins.cache";
 
 
-pub fn mining(wallet: &str, address: Option<&str>, coin: &str, 
-              fee: &str, threads: usize) -> std::io::Result<()> {
+pub fn mining(wallet: &str, address: Option<&str>, fee: &str, 
+              threads: usize) -> std::io::Result<()> {
     // Prepare parameters
     let miner = U256::from_hex(wallet);
     let address = U256::from_hex(address.unwrap_or(wallet));
-    let min_order_coin = coin_order_by_symbol(coin);
-    let min_order_fee = coin_order_by_symbol(fee);
-
-    // Check orders
-    assert!(min_order_coin > min_order_fee, "Fee must me smaller");
+    let min_order = coin_order_by_symbol(fee);
 
     // Request for appdata by password
     let appdata = load_with_password()?.0;
@@ -37,25 +33,22 @@ pub fn mining(wallet: &str, address: Option<&str>, coin: &str,
     let wallet_key = appdata.get_wallet_key(wallet).unwrap();
 
     // Define resources
-    let local_resource = RwLock::new(load_resource(COINS_CACHE)?);
-    let remote_resource = RwLock::new(OrderCoinsMap::new());
+    let resource = RwLock::new(load_resource(COINS_CACHE)?);
 
     // Run threads in a scope
     std::thread::scope(|scope| {
         for _ in 0..threads {
-            scope.spawn(|| mine_task(&miner, min_order_fee, &local_resource));
+            scope.spawn(|| mine_task(&miner, min_order, &resource));
         }
-        scope.spawn(|| send_task(nodes, min_order_coin, min_order_fee, &address,
-                                 wallet, wallet_key, &local_resource, 
-                                 &remote_resource));
+        scope.spawn(|| send_task(nodes, min_order, &address,
+                                 wallet_key, &resource));
     });
 
     Ok(())
 }
 
 
-fn mine_task(miner: &U256, min_order: u64, 
-             local_resource: &RwLock<OrderCoinsMap>) {
+fn mine_task(miner: &U256, min_order: u64, resource: &RwLock<OrderCoinsMap>) {
     // Random
     let mut rng = rand::rng();
 
@@ -67,23 +60,22 @@ fn mine_task(miner: &U256, min_order: u64,
 
         // Add the coin to local resource
         {
-            let mut local_resource = local_resource.write().unwrap();
-            if !local_resource.contains_key(&order) {
-                local_resource.insert(order, HashSet::new());
+            let mut resource = resource.write().unwrap();
+            if !resource.contains_key(&order) {
+                resource.insert(order, HashSet::new());
             }
-            local_resource.get_mut(&order).unwrap().insert(coin);
+            resource.get_mut(&order).unwrap().insert(coin);
         }
 
         // Dump local resource to the cache file
-        dump_resource(&local_resource.read().unwrap(), COINS_CACHE).unwrap();
+        dump_resource(&resource.read().unwrap(), COINS_CACHE).unwrap();
     }
 }
 
 
-fn send_task(nodes: &[String], min_order_coin: u64, min_order_fee: u64, 
-             address: &U256, wallet: &str, wallet_key: &U256,
-             local_resource: &RwLock<OrderCoinsMap>, 
-             remote_resource: &RwLock<OrderCoinsMap>) {
+fn send_task(nodes: &[String], min_order: u64,
+             address: &U256, wallet_key: &U256,
+             resource: &RwLock<OrderCoinsMap>) {
     // Random
     let mut rng = rand::rng();
 
@@ -92,159 +84,88 @@ fn send_task(nodes: &[String], min_order_coin: u64, min_order_fee: u64,
 
     // Infinite loop
     loop {
-        // Update wallet resource
-        update_remote_resource(nodes, wallet, remote_resource);
+        // 1. Update resource
+        update_resource(nodes, resource);
+        dump_resource(&resource.read().unwrap(), COINS_CACHE).unwrap();
 
-        // Update coins in local resource
-        update_local_resource(local_resource, remote_resource);
+        // 2. Prepare coins to send
+        let (coins, fees) = prepare_coins(min_order, resource);
 
-        // Try to send 5 times
-        for _ in 0..5 {
-            // Find coin
-            if let Some(coin) = get_coin(&mut rng, min_order_coin, 
-                                         local_resource) {
-                // Find fee
-                if let Some(fee) = get_fee(&mut rng, min_order_fee, 
-                                           min_order_coin,
-                                           local_resource, remote_resource) {
-                    // println!("Coin sent: {}", coin.to_hex());
+        // 3. Send transactions
+        if !coins.is_empty() {
+            for (coin, fee) in coins.into_iter().zip(fees.into_iter()) {
+                // Build transactions
+                let group = vec![
+                    Transaction::build(&mut rng, coin, address.clone(), 
+                                       wallet_key, 0, &schema),
+                    Transaction::build(&mut rng, fee, U256::from(0), 
+                                       wallet_key, 0, &schema),
+                ];
 
-                    // Request for fee coin counter
-                    let fee_counter = try_first_validator!(
-                        nodes, request_coin_info, 
-                        &fee.to_hex()
-                    ).map(|ci| ci.counter).unwrap_or(0);
-
-                    // Build transactions
-                    let group = vec![
-                        Transaction::build(&mut rng, coin, 
-                                           address.clone(), 
-                                           &wallet_key, 0, &schema),
-                        Transaction::build(&mut rng, fee, U256::from(0), 
-                                           &wallet_key, fee_counter, 
-                                           &schema),
-                    ];
-
-                    // Send transactions to all known nodes
-                    for node in nodes.iter() {
-                        let group = group.clone();
-                        let node = node.clone();
-                        std::thread::spawn(move || {
-                            let _ = request_send(&group, &node);
-                        });
-                    }
-                }
-            }
-
-            // Sleep for 2 seconds
-            std::thread::sleep(std::time::Duration::from_millis(2000));
-        }
-    }
-}
-
-
-fn update_remote_resource(nodes: &[String], wallet: &str, 
-                          remote_resource: &RwLock<OrderCoinsMap>) {
-    let coins_map_res = try_first_validator!(
-        nodes, request_coins_map, wallet
-    );
-    if let Some(coins_map) = coins_map_res {
-        if *remote_resource.read().unwrap() != coins_map {
-            *remote_resource.write().unwrap() = coins_map;
-        }
-    }
-}
-
-
-fn update_local_resource(local_resource: &RwLock<OrderCoinsMap>, 
-                         remote_resource: &RwLock<OrderCoinsMap>) {
-    // Calculate resource difference
-    let diff = {
-        let mut diff: OrderCoinsMap = OrderCoinsMap::new();
-
-        let local_resource = local_resource.read().unwrap();
-        let remote_resource = remote_resource.read().unwrap();
-
-        for (order, coins_set_local) in local_resource.iter() {
-            if let Some(coins_set_remove) = remote_resource.get(order) {
-                let common = coins_set_local.intersection(&coins_set_remove)
-                                            .cloned()
-                                            .collect::<HashSet<U256>>();
-                if !common.is_empty() {
-                    diff.insert(*order, common);
+                // Send transactions to all known nodes
+                for node in nodes.iter() {
+                    let group = group.clone();
+                    let node = node.clone();
+                    std::thread::spawn(move || {
+                        let _ = request_send(&group, &node);
+                    });
                 }
             }
         }
 
-        diff
-    };
+        // Sleep for 20 seconds
+        std::thread::sleep(std::time::Duration::from_millis(20000));
+    }
+}
 
-    for (&order, coins) in diff.iter() {
+
+fn update_resource(nodes: &[String], resource: &RwLock<OrderCoinsMap>) {
+    // Collect coins to remove that have counter > 0
+    let mut coins_to_remove = Vec::new();
+
+    for coins in resource.read().unwrap().clone().values() {
         for coin in coins.iter() {
-            println!("Coin confirmed: {}-{}", coin_symbol(order), coin.to_hex());
+            let coin_info_res = try_first_validator!(
+                nodes, request_coin_info, &coin.to_hex()
+            );
+            if let Some(coin_info) = coin_info_res {
+                if coin_info.counter > 0 {
+                    coins_to_remove.push(coin.clone());
+                }
+            }
         }
     }
 
-    // Drop local coins if they are already in blockchain
-    if !diff.is_empty() {
-        let mut local_resource = local_resource.write().unwrap();
-
-        for (order, common) in diff.iter() {
-            let set = local_resource.get_mut(order).unwrap();
-
-            if set.len() == common.len() {
-                local_resource.remove(order);
-            } else {
-                for coin in common.iter() {
-                    set.remove(coin);
-                }
+    // Remove registered coins
+    for (order, coins) in resource.write().unwrap().iter_mut() {
+        for coin in coins_to_remove.iter() {
+            if coins.remove(coin) {
+                println!("Coin confirmed: {}-{}", 
+                         coin_symbol(*order), coin.to_hex());
             }
         }
     }
 }
 
 
-fn get_coin<R: Rng>(rng: &mut R, min_order_coin: u64, 
-                    local_resource: &RwLock<OrderCoinsMap>) -> Option<U256> {
-    get_from_resource(rng, min_order_coin, 255, local_resource)
-}
+fn prepare_coins(min_order: u64, 
+                 resource: &RwLock<OrderCoinsMap>) -> (Vec<U256>, Vec<U256>) {
+    let coins_map = resource.read().unwrap();
 
+    let mut coins: Vec<U256> = coins_map.iter()
+        .filter(|(order, _)| **order > min_order)
+        .map(|(_, coins)| coins.iter().cloned().collect::<Vec<_>>())
+        .collect::<Vec<_>>().concat();
 
-fn get_fee<R: Rng>(rng: &mut R, order_fee: u64, order_coin: u64,
-                   local_resource: &RwLock<OrderCoinsMap>,
-                   remote_resource: &RwLock<OrderCoinsMap>) -> Option<U256> {
-    // Try to find coin in local resource
-    if let Some(coin) = get_from_resource(rng, order_fee, order_coin - 1, 
-                                          local_resource) {
-        return Some(coin);
-    }
+    let mut fees: Vec<U256> = coins_map.get(&min_order)
+        .unwrap().iter().cloned().collect();
 
-    // Try to find coin in remote resource
-    if let Some(coin) = get_from_resource(rng, order_fee, order_coin - 1, 
-                                          remote_resource) {
-        return Some(coin);
-    }
+    let size = std::cmp::min(coins.len(), fees.len());
 
-    None
-}
+    coins.truncate(size);
+    fees.truncate(size);
 
-
-fn get_from_resource<R: Rng>(rng: &mut R, order_min: u64, order_max: u64,
-                             resource: &RwLock<OrderCoinsMap>) -> Option<U256> {
-    let resource = resource.read().unwrap();
-
-    let orders_vec: Vec<u64> = resource.keys()
-        .filter(|order| (**order >= order_min) && (**order <= order_max))
-        .cloned().collect();
-
-    if !orders_vec.is_empty() {
-        let order: &u64 = orders_vec.choose(rng).unwrap();
-        let coins_vec: Vec<&U256> = resource[order].iter().collect();
-        let coin: U256 = (*coins_vec.choose(rng).unwrap()).clone();
-        Some(coin)
-    } else {
-        None
-    }
+    (coins, fees)
 }
 
 
@@ -252,8 +173,8 @@ fn load_resource(path: &str) -> std::io::Result<OrderCoinsMap> {
     let path = ensure_location(path)?;
     if std::fs::exists(&path)? {
         let json = std::fs::read_to_string(&path)?;
-        let resourse: OrderCoinsMap = serde_json::from_str(&json)?;
-        Ok(resourse)
+        let resource: OrderCoinsMap = serde_json::from_str(&json)?;
+        Ok(resource)
     } else {
         Ok(OrderCoinsMap::new())
     }
