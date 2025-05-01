@@ -29,7 +29,7 @@ every time to run a command.
 | `uqoin-client api send -w <WALLET1> -a <WALLET2> -c D128 -f D1` | Send coin D128 from `WALLET1` to `WALLET2` with fee coin D1. |
 | `uqoin-client api split -w <WALLET> -c D128 -f D1` | Split coin D128 in `WALLET` into D64 and two D32 with fee coin D1. |
 | `uqoin-client api merge -w <WALLET> -c D128 -f D1` | Split coins D64 and two D32 in `WALLET` into D128 with fee coin D1. |
-| `uqoin-client mining -w <WALLET> -c D1 -f C32 -t 4` | Run mining of the coins greater or eqial D1 and fee greater of equal C32 on 4 cores for the wallet `WALLET`. |
+| `uqoin-client mining -w <WALLET> -f C32 -t 4` | Run mining of the coins greater D1 and fee equal to D1 on 4 cores for the wallet `WALLET`. |
 
 ## All commands
 
@@ -51,7 +51,7 @@ every time to run a command.
 | `uqoin-client api send -w <WALLET> -a <ADDR> -c <COIN> -f <FEE>` | Send `<COIN>` (as symbol) from `<WALLET>` (your wallet) to `<ADDR>` (wallet of the receiver) attaching the fee coin symbol `<FEE>` (optional). |
 | `uqoin-client api split -w <WALLET> -c <COIN> -f <FEE>` | Split `<COIN>` (as symbol) from `<WALLET>` into 3 coins attaching the fee coin symbol `<FEE>` (optional). |
 | `uqoin-client api merge -w <WALLET> -c <COIN> -f <FEE>` | Merge 3 coins from `<WALLET>` into `<COIN>` (as symbol) attaching the fee coin symbol `<FEE>` (optional). |
-| `uqoin-client api mining -w <WALLET> -c <COIN> -f <FEE> -t <THREADS>` | Run mining into the `<WALLET>` of coins greater or equal `<COIN>` (as symbol) attaching the fee coin greater or equal to symbol `<FEE>` (optional) in `<THREADS>` (default **1**). |
+| `uqoin-client api mining -w <WALLET> -a <ADDRESS> -f <FEE> -t <THREADS>` | Run mining from the wallet `<WALLET>` into the `<ADDRESS>` (optional,  it is set to `<WALLET>` if not specified) of coins greater `<FEE>` (as symbol) attaching the fee coin equal to symbol `<FEE>` in `<THREADS>` (default **1**). |
 | `uqoin-client node list` | Show available nodes to request (order matters, most requests are implemented sequentially until first success). |
 | `uqoin-client node add -n <NODE>` | Add a `<NODE>` to the end. |
 | `uqoin-client node remove -n <NODE>` | Remove `<NODE>`. |

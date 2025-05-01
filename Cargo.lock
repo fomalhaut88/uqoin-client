@@ -1545,8 +1545,9 @@ dependencies = [
 
 [[package]]
 name = "uqoin-core"
-version = "0.1.0"
-source = "git+https://github.com/fomalhaut88/uqoin-core.git#507f0fa78593e13232c3e68eceb6c483d1cd5124"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02d762b58a3ab03ba3e53d0405f563350108c082deec1048c28a6108d760d18a"
 dependencies = [
  "bip39",
  "finitelib",
