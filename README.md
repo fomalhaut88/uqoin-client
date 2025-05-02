@@ -74,3 +74,11 @@ every time to run a command.
 | `uqoin-client node move -n <NODE> -p <POS>` | Move `<NODE>` to the position `<POS>` in the list (starting with 1). |
 | `uqoin-client node default` | Restore default nodes. |
 | `uqoin-client node fetch -n <NODE>` | Fetch known sync nodes from `<NODE>` if specified or applying to all nodes in the local list. |
+| `uqoin-client tool gen-key` | Generate a random private key of a wallet. |
+| `uqoin-client tool gen-pair` | Generate a random pair of public-private key of a wallet. |
+| `uqoin-client tool get-public -k <KEY>` | Get public key (wallet address) from the given private key `<KEY>`. |
+| `uqoin-client tool gen-seed` | Generate a random seed phrase (12 words). |
+| `uqoin-client tool gen-wallets -s <SEED> -c <COUNT> -o <OFFSET>` | Deterministic generate `<COUNT>` (default **10**) wallets (as public-key pairs) with the offset `<OFFSET>` (default **0**) from given mnemonic `<SEED>`. |
+| `uqoin-client tool hash -m <MSG1> -m <MSG2> ...` | Calculate SHA3 hash of 256-bit messages `<MSG1>`, `<MSG2>` ... (in HEX). |
+| `uqoin-client tool build-signature -m <MSG> -k <KEY>` | Build EdDSA signature from 256-bit message `<MSG>` (in HEX) and private key `<KEY>`. |
+| `uqoin-client tool extract-public -m <MSG> -s <SIGNATURE>` | Extract public key (wallet address) from 256-bit message `<MSG>` (in HEX) and EdDSA signature (512-bit in HEX). |

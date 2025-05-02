@@ -7,6 +7,7 @@ mod wallet;
 mod api;
 mod mining;
 mod node;
+mod tool;
 
 
 /// Uqoin-client
@@ -202,6 +203,70 @@ pub enum NodeCommand {
 
 
 #[derive(Subcommand, Debug)]
+pub enum ToolCommand {
+    /// Generate a new random key.
+    GenKey,
+
+    /// Generate a new random public-key pair.
+    GenPair,
+
+    /// Get public from private key.
+    GetPublic {
+        /// Private key in HEX.
+        #[arg(short, long)]
+        key: String,
+    },
+
+    /// Generate random mnemonic phrase (12 words).
+    GenSeed,
+
+    /// Generate wallets (public-key pairs) from given seed.
+    GenWallets {
+        /// 12-word seed phrase (mnemonic).
+        #[arg(short, long)]
+        seed: String,
+
+        /// 12-word seed phrase (mnemonic).
+        #[arg(short, long, default_value_t = 10)]
+        count: usize,
+
+        /// Offset.
+        #[arg(short, long, default_value_t = 0)]
+        offset: usize,
+    },
+
+    /// Hash of the sequence of 256-bit messages (as HEX).
+    Hash {
+        /// 12-word seed phrase (mnemonic).
+        #[arg(short, long)]
+        msg: Vec<String>,
+    },
+
+    /// Build signature from 256-bit message.
+    BuildSignature {
+        /// 256-bit messsage in HEX.
+        #[arg(short, long)]
+        msg: String,
+
+        /// Private key in HEX.
+        #[arg(short, long)]
+        key: String,
+    },
+
+    /// Extract public from message 256-bit and signature.
+    ExtractPublic {
+        /// 256-bit messsage in HEX.
+        #[arg(short, long)]
+        msg: String,
+
+        /// Signature in HEX.
+        #[arg(short, long)]
+        signature: String,
+    },
+}
+
+
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Basic account management.
     Account {
@@ -245,6 +310,12 @@ pub enum Command {
         #[command(subcommand)]
         command: NodeCommand,
     },
+
+    /// Special crypto functions for Uqoin protocol.
+    Tool {
+        #[command(subcommand)]
+        command: ToolCommand,
+    }
 }
 
 
@@ -333,6 +404,35 @@ fn main() -> std::io::Result<()> {
                 },
                 NodeCommand::Fetch { node } => {
                     node::fetch(node.as_deref())?;
+                },
+            }
+        },
+
+        Command::Tool { command } => {
+            match command {
+                ToolCommand::GenKey => {
+                    tool::gen_key()?;
+                },
+                ToolCommand::GenPair => {
+                    tool::gen_pair()?;
+                },
+                ToolCommand::GetPublic { key } => {
+                    tool::get_public(&key)?;
+                },
+                ToolCommand::GenSeed => {
+                    tool::gen_seed()?;
+                },
+                ToolCommand::GenWallets { seed, count, offset } => {
+                    tool::gen_wallets(&seed, count, offset)?;
+                },
+                ToolCommand::Hash { msg } => {
+                    tool::hash(&msg)?;
+                },
+                ToolCommand::BuildSignature { msg, key } => {
+                    tool::build_signature(&msg, &key)?;
+                },
+                ToolCommand::ExtractPublic { msg, signature } => {
+                    tool::extract_public(&msg, &signature)?;
                 },
             }
         },
