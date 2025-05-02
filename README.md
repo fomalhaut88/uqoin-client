@@ -7,9 +7,25 @@ every time to run a command.
 
 ## Installation
 
+### For Linux
+
 1. Download the source: `git clone https://github.com/fomalhaut88/uqoin-client.git --depth=1`
 2. Compile (you need Rust installed in Nightly toolchain): `cargo build --release`
 3. Copy the executable: `sudo cp ./target/release/uqoin-client /usr/bin/uqoin-client`
+
+### For Windows
+
+1. Download the setup file from SourceForge: https://sourceforge.net/projects/uqoin-client/files/latest/download
+2. Run the downloaded file and follow the wizard.
+3. Restart the computer.
+
+### Build for Windows
+
+1. Download the source: `git clone https://github.com/fomalhaut88/uqoin-client.git --depth=1`
+2. Compile (you need Rust installed in Nightly toolchain): `cargo build --release`
+3. Pack with [Inno Setup](https://jrsoftware.org/isinfo.php): `iscc uqoin-client-setup.iss`
+4. Run the appeared EXE-file `uqoin-client-setup-<VERSION>.exe` and follow the wizard.
+5. Restart the computer.
 
 ## Quick start
 
