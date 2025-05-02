@@ -14,12 +14,6 @@ pub fn str_to_bytes<const N: usize>(s: &str) -> [u8; N] {
 }
 
 
-// /// Represent bytes as string.
-// pub fn bytes_to_str(bytes: &[u8]) -> &str {
-//     std::str::from_utf8(bytes).unwrap().trim_end_matches('\0')
-// }
-
-
 /// Ask user for password.
 pub fn require_password() -> std::io::Result<String> {
     print!("Password: ");
