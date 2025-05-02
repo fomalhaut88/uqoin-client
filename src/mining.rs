@@ -158,7 +158,7 @@ fn prepare_coins(min_order: u64,
         .collect::<Vec<_>>().concat();
 
     let mut fees: Vec<U256> = coins_map.get(&min_order)
-        .unwrap().iter().cloned().collect();
+        .unwrap_or(&HashSet::new()).iter().cloned().collect();
 
     let size = std::cmp::min(coins.len(), fees.len());
 
