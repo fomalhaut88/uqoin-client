@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use uqoin_core::utils::U256;
 use uqoin_core::schema::Schema;
 use uqoin_core::coin::{coin_order, coin_symbol, coin_mine, 
-                       coin_order_by_symbol};
+                       coin_order_by_symbol, coin_validate};
 use uqoin_core::transaction::Transaction;
 use uqoin_core::state::OrderCoinsMap;
 
@@ -40,7 +40,7 @@ pub fn mining(wallet: &str, address: Option<&str>, fee: &str,
         for _ in 0..threads {
             scope.spawn(|| mine_task(&miner, min_order, &resource));
         }
-        scope.spawn(|| send_task(nodes, min_order, &address,
+        scope.spawn(|| send_task(nodes, min_order, &address, &miner,
                                  wallet_key, &resource));
     });
 
@@ -73,9 +73,8 @@ fn mine_task(miner: &U256, min_order: u64, resource: &RwLock<OrderCoinsMap>) {
 }
 
 
-fn send_task(nodes: &[String], min_order: u64,
-             address: &U256, wallet_key: &U256,
-             resource: &RwLock<OrderCoinsMap>) {
+fn send_task(nodes: &[String], min_order: u64, address: &U256, miner: &U256, 
+             wallet_key: &U256, resource: &RwLock<OrderCoinsMap>) {
     // Random
     let mut rng = rand::rng();
 
@@ -85,11 +84,11 @@ fn send_task(nodes: &[String], min_order: u64,
     // Infinite loop
     loop {
         // 1. Update resource
-        update_resource(nodes, resource);
+        update_resource(nodes, miner, resource);
         dump_resource(&resource.read().unwrap(), COINS_CACHE).unwrap();
 
         // 2. Prepare coins to send
-        let (coins, fees) = prepare_coins(min_order, resource);
+        let (coins, fees) = prepare_coins(min_order, miner, resource);
 
         // 3. Send transactions
         if !coins.is_empty() {
@@ -119,18 +118,21 @@ fn send_task(nodes: &[String], min_order: u64,
 }
 
 
-fn update_resource(nodes: &[String], resource: &RwLock<OrderCoinsMap>) {
+fn update_resource(nodes: &[String], miner: &U256, 
+                   resource: &RwLock<OrderCoinsMap>) {
     // Collect coins to remove that have counter > 0
     let mut coins_to_remove = Vec::new();
 
     for coins in resource.read().unwrap().clone().values() {
         for coin in coins.iter() {
-            let coin_info_res = try_first_validator!(
-                nodes, request_coin_info, &coin.to_hex()
-            );
-            if let Some(coin_info) = coin_info_res {
-                if coin_info.counter > 0 {
-                    coins_to_remove.push(coin.clone());
+            if coin_validate(coin, miner).is_ok() {
+                let coin_info_res = try_first_validator!(
+                    nodes, request_coin_info, &coin.to_hex()
+                );
+                if let Some(coin_info) = coin_info_res {
+                    if coin_info.counter > 0 {
+                        coins_to_remove.push(coin.clone());
+                    }
                 }
             }
         }
@@ -148,17 +150,18 @@ fn update_resource(nodes: &[String], resource: &RwLock<OrderCoinsMap>) {
 }
 
 
-fn prepare_coins(min_order: u64, 
+fn prepare_coins(min_order: u64, miner: &U256,
                  resource: &RwLock<OrderCoinsMap>) -> (Vec<U256>, Vec<U256>) {
     let coins_map = resource.read().unwrap();
 
     let mut coins: Vec<U256> = coins_map.iter()
         .filter(|(order, _)| **order > min_order)
-        .map(|(_, coins)| coins.iter().cloned().collect::<Vec<_>>())
-        .collect::<Vec<_>>().concat();
+        .map(|(_, coins)| collect_valid_coins(coins.iter(), miner))
+        .collect::<Vec<Vec<U256>>>().concat();
 
-    let mut fees: Vec<U256> = coins_map.get(&min_order)
-        .unwrap_or(&HashSet::new()).iter().cloned().collect();
+    let mut fees: Vec<U256> = collect_valid_coins(
+        coins_map.get(&min_order).unwrap_or(&HashSet::new()).iter(), miner
+    );
 
     let size = std::cmp::min(coins.len(), fees.len());
 
@@ -186,4 +189,10 @@ fn dump_resource(resource: &OrderCoinsMap, path: &str) -> std::io::Result<()> {
     let json = serde_json::to_string(resource)?;
     std::fs::write(&path, json)?;
     Ok(())
+}
+
+
+fn collect_valid_coins<'a, I>(it: I, miner: &U256) -> Vec<U256> 
+                              where I: Iterator<Item = &'a U256> {
+    it.filter(|coin| coin_validate(coin, miner).is_ok()).cloned().collect()
 }
