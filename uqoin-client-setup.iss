@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Uqoin Client"
-#define MyAppVersion "0.1.2"
+#define MyAppVersion "0.1.3"
 #define MyAppPublisher "Alexander Khlebushchev, Inc."
 #define MyAppURL "https://uqoin.net/"
 #define MyAppExeName "uqoin-client.exe"
