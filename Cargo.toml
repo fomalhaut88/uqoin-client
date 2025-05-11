@@ -2,6 +2,7 @@
 name = "uqoin-client"
 version = "0.1.3"
 edition = "2024"
+license = "MIT"
 authors = ["Alexander Khlebushchev <alexfomalhaut@gmail.com>"]
 description = "CLI tool for Uqoin network access and coin mining."
 readme = "README.md"
