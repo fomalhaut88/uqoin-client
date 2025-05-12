@@ -1,5 +1,9 @@
 # uqoin-client
 
+![Top Language](https://img.shields.io/github/languages/top/fomalhaut88/winrk)
+![Version](https://img.shields.io/badge/version-v0.1.3-green)
+![License](https://img.shields.io/badge/license-MIT-orange)
+
 A command line tool to interact with nodes of Uqoin ecosystem. It supports
 working with wallets, sending transactions, mining. The data of the application
 is stored on disk encrypted with AES-128 so you need to enter the password
