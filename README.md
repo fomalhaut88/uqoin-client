@@ -1,6 +1,6 @@
 # uqoin-client
 
-![Top Language](https://img.shields.io/github/languages/top/fomalhaut88/winrk)
+![Top Language](https://img.shields.io/github/languages/top/fomalhaut88/uqoin-client)
 ![Version](https://img.shields.io/badge/version-v0.1.3-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
