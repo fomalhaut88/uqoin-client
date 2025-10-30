@@ -16,9 +16,10 @@ use crate::utils::*;
 pub const APPDATA_PATH: &str = "~/.uqoin-client/appdata.aes";
 
 pub const VALIDATORS_DEFAULT: [&str; 3] = [
-    "http://85.99.244.254:5772",
-    "http://89.179.245.236:5772",
-    "http://89.179.245.236:5773",
+    // "http://85.99.244.254:5772",
+    // "http://89.179.245.236:5772",
+    // "http://89.179.245.236:5773",
+    "http://78.186.183.41:5772",
 ];
 
 
